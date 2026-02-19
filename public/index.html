@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conciliador PayPal Pro (Cloud Sync)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .animate-card {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        #customModal {
+            display: none;
+        }
+
+        #customModal.flex {
+            display: flex;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-900 h-screen flex flex-col overflow-hidden">
+
+    <!-- Notificaciones -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Modal de Confirmación Custom (Evita bloqueos de navegador) -->
+    <div id="customModal"
+        class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
+        <div class="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 animate-card">
+            <div class="text-center">
+                <div
+                    class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fa-solid fa-circle-question text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-800 mb-3">¿Confirmar Acción?</h3>
+                <p id="modalMessage" class="text-slate-500 mb-8 leading-relaxed">¿Estás seguro de procesar estos
+                    registros en la nube?</p>
+                <div class="flex gap-4">
+                    <button onclick="closeModal()"
+                        class="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all">Cancelar</button>
+                    <button id="modalConfirmBtn"
+                        class="flex-1 px-6 py-4 rounded-2xl bg-[#0070ba] text-white font-bold hover:bg-[#005ea6] shadow-xl shadow-blue-200 transition-all">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Overlay -->
+    <div id="loginOverlay" class="fixed inset-0 z-[200] bg-[#003087] flex items-center justify-center p-4">
+        <div class="bg-white rounded-[3rem] shadow-2xl max-w-md w-full p-10 text-center animate-card">
+            <div
+                class="bg-blue-50 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8 transform rotate-12 shadow-lg">
+                <i class="fa-brands fa-paypal text-[#0070ba] text-5xl"></i>
+            </div>
+            <h2 class="text-3xl font-black text-slate-800 mb-4">¡Bienvenido!</h2>
+            <p class="text-slate-500 mb-10 leading-relaxed font-medium">Accede con tu cuenta de Google para sincronizar
+                tus pagos entre dispositivos de forma segura.</p>
+
+            <button id="btnLogin"
+                class="w-full bg-white border-2 border-slate-200 hover:border-blue-400 text-slate-700 font-black py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-4 group shadow-sm">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-6 h-6"
+                    alt="Google">
+                <span>Acceder con Google</span>
+                <i
+                    class="fa-solid fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all"></i>
+            </button>
+            <p class="mt-8 text-[10px] text-slate-400 font-bold uppercase tracking-widest">Protegido por Firebase
+                Security</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-[#003087] text-white shadow-lg flex-shrink-0 z-10">
+        <div class="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="bg-white p-2 rounded-xl shadow-inner transform rotate-[-5deg]">
+                    <i class="fa-brands fa-paypal text-[#0070ba] text-3xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-xl sm:text-2xl leading-none tracking-tight">PayPal <span
+                            class="text-blue-300">Auditor</span></h1>
+                    <p
+                        class="hidden sm:block text-[10px] text-blue-200 uppercase tracking-[0.2em] font-black opacity-80 mt-1">
+                        Gestión
+                        Financiera Cloud</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="statusIndicator"
+                    class="flex items-center gap-3 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md">
+                    <div class="w-3 h-3 rounded-full bg-yellow-400 animate-pulse" id="dot"></div>
+                    <span id="statusText" class="text-[11px] font-black uppercase tracking-wider">CONECTANDO...</span>
+                </div>
+                <button id="btnLogout" class="text-white/60 hover:text-white p-2" title="Cerrar sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navegación -->
+    <nav class="bg-white border-b border-slate-200 flex-shrink-0 shadow-sm overflow-x-auto no-scrollbar">
+        <div class="max-w-6xl mx-auto flex px-2 focus:outline-none">
+            <button onclick="showTab('conciliate')" id="nav-conciliate"
+                class="nav-btn flex items-center gap-2 lg:gap-3 px-4 lg:px-8 py-4 lg:py-5 text-xs lg:text-sm font-black border-b-[3px] border-blue-600 text-blue-600 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-shield-check text-base lg:text-lg"></i> 1. AUDITORÍA PRO
+            </button>
+            <button onclick="showTab('payments')" id="nav-payments"
+                class="nav-btn flex items-center gap-2 lg:gap-3 px-4 lg:px-8 py-4 lg:py-5 text-xs lg:text-sm font-black border-b-[3px] border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-money-bill-wave text-base lg:text-lg"></i> 2. PAGOS
+            </button>
+            <button onclick="showTab('import')" id="nav-import"
+                class="nav-btn flex items-center gap-2 lg:gap-3 px-4 lg:px-8 py-4 lg:py-5 text-xs lg:text-sm font-black border-b-[3px] border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-cloud-arrow-up text-base lg:text-lg"></i> 3. CARGAR PAYPAL
+            </button>
+            <button onclick="showTab('dashboard')" id="nav-dashboard"
+                class="nav-btn flex items-center gap-2 lg:gap-3 px-4 lg:px-8 py-4 lg:py-5 text-xs lg:text-sm font-black border-b-[3px] border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-chart-pie text-base lg:text-lg"></i> 4. RESUMEN
+            </button>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal -->
+    <main class="flex-grow overflow-hidden max-w-6xl mx-auto w-full p-4 md:p-8 relative">
+
+        <!-- PESTAÑA: RESUMEN (Dashboard) -->
+        <div id="tab-dashboard"
+            class="tab-content hidden h-full flex flex-col gap-3 lg:gap-8 overflow-y-auto pr-2 custom-scroll">
+            <div class="grid grid-cols-3 gap-2 lg:gap-6">
+                <!-- Tarjetas de Resumen: compactas en móvil -->
+                <div class="bg-white p-3 lg:p-8 rounded-xl lg:rounded-[2.5rem] shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-2 lg:gap-4 mb-1 lg:mb-4">
+                        <div
+                            class="w-7 h-7 lg:w-12 lg:h-12 rounded-lg lg:rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 text-xs lg:text-xl">
+                            <i class="fa-brands fa-paypal"></i>
+                        </div>
+                        <h3 class="text-[8px] lg:text-sm font-black text-slate-400 uppercase tracking-wider">Total
+                            PayPal</h3>
+                    </div>
+                    <p class="text-2xl lg:text-4xl font-black text-slate-800" id="statTotal">0</p>
+                </div>
+                <div class="bg-white p-3 lg:p-8 rounded-xl lg:rounded-[2.5rem] shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-2 lg:gap-4 mb-1 lg:mb-4">
+                        <div
+                            class="w-7 h-7 lg:w-12 lg:h-12 rounded-lg lg:rounded-2xl bg-purple-100 flex items-center justify-center text-purple-600 text-xs lg:text-xl">
+                            <i class="fa-solid fa-clock"></i>
+                        </div>
+                        <h3 class="text-[8px] lg:text-sm font-black text-slate-400 uppercase tracking-wider">Pendientes
+                        </h3>
+                    </div>
+                    <p class="text-2xl lg:text-4xl font-black text-purple-600" id="statPending">0</p>
+                </div>
+                <div class="bg-white p-3 lg:p-8 rounded-xl lg:rounded-[2.5rem] shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-2 lg:gap-4 mb-1 lg:mb-4">
+                        <div
+                            class="w-7 h-7 lg:w-12 lg:h-12 rounded-lg lg:rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 text-xs lg:text-xl">
+                            <i class="fa-solid fa-check-double"></i>
+                        </div>
+                        <h3 class="text-[8px] lg:text-sm font-black text-slate-400 uppercase tracking-wider">Auditados
+                        </h3>
+                    </div>
+                    <p class="text-2xl lg:text-4xl font-black text-emerald-500" id="statDone">0</p>
+                </div>
+            </div>
+
+            <!-- Historial -->
+            <div class="bg-white rounded-xl lg:rounded-[2.5rem] shadow-sm border border-slate-200 flex-grow flex flex-col min-h-0 overflow-hidden"
+                style="flex: 1 1 0;">
+                <div
+                    class="p-3 lg:p-8 border-b border-slate-100 bg-slate-50/50 flex flex-wrap lg:flex-nowrap justify-between items-center gap-2 sticky top-0 z-10">
+                    <div class="flex items-center gap-3 lg:gap-6">
+                        <h2 class="font-black text-slate-700 text-xs lg:text-sm tracking-tight">HISTORIAL CLOUD</h2>
+                        <div
+                            class="flex bg-slate-200 p-1 lg:p-1.5 rounded-lg lg:rounded-xl text-[8px] lg:text-[10px] font-black">
+                            <button onclick="setFilter('all')" id="filter-all"
+                                class="px-3 lg:px-5 py-1.5 lg:py-2 rounded-md lg:rounded-lg bg-white shadow-sm transition-all">TODOS</button>
+                            <button onclick="setFilter('pending')" id="filter-pending"
+                                class="px-3 lg:px-5 py-1.5 lg:py-2 rounded-md lg:rounded-lg text-slate-500 hover:text-slate-700 transition-all">PENDIENTES</button>
+                            <button onclick="setFilter('done')" id="filter-done"
+                                class="px-3 lg:px-5 py-1.5 lg:py-2 rounded-md lg:rounded-lg text-slate-500 hover:text-slate-700 transition-all">AUDITADOS</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 lg:gap-2">
+                        <button id="btnBulk" onclick="openBulkConfirm()"
+                            class="hidden flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl font-black text-[8px] lg:text-[10px] uppercase shadow-md shadow-emerald-200 transition-all active:scale-95">
+                            <i class="fa-solid fa-check-double"></i> Conciliar Todo
+                        </button>
+                        <button onclick="resetAllMovements()"
+                            class="text-red-400 hover:text-red-600 p-2 lg:p-3 rounded-lg lg:rounded-xl hover:bg-red-50 transition-all"
+                            title="Reset de Pruebas">
+                            <i class="fa-solid fa-undo text-sm lg:text-lg"></i>
+                        </button>
+                        <button onclick="fetchMovements()"
+                            class="text-slate-400 hover:text-blue-600 p-2 lg:p-3 rounded-lg lg:rounded-xl hover:bg-blue-50 transition-all">
+                            <i class="fa-solid fa-rotate-right text-sm lg:text-lg"></i>
+                        </button>
+                        <button id="btnExport" onclick="exportData()"
+                            class="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl font-black text-[8px] lg:text-[10px] uppercase transition-all">
+                            <i class="fa-solid fa-file-export"></i> Backup
+                        </button>
+                    </div>
+                </div>
+                <div id="historyList" class="p-3 lg:p-6 overflow-y-auto custom-scroll space-y-2">
+                    <!-- Dinámico -->
+                    <div class="py-20 text-center opacity-30">
+                        <i class="fa-solid fa-spinner fa-spin text-5xl mb-4"></i>
+                        <p class="font-black uppercase text-[10px]">Cargando...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA: IMPORTAR -->
+        <div id="tab-import" class="tab-content hidden h-full flex flex-col items-center justify-center p-4">
+            <div class="max-w-xl w-full">
+                <!-- Botones de Backup (Import/Export) -->
+                <div class="flex gap-4 mb-8">
+                    <button onclick="exportData()"
+                        class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-3 rounded-2xl border border-emerald-200 transition-all text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download"></i> EXPORTAR RESPALDO
+                    </button>
+                    <button onclick="document.getElementById('jsonInput').click()"
+                        class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-3 rounded-2xl border border-purple-200 transition-all text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-upload"></i> IMPORTAR RESPALDO
+                    </button>
+                    <input type="file" id="jsonInput" accept=".json" class="hidden" onchange="importData(this)">
+                </div>
+
+                <div class="w-full border-2 border-dashed border-slate-300 rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-10 flex flex-col items-center justify-center cursor-pointer group"
+                    onclick="document.getElementById('pdfUpload').click()">
+                    <div
+                        class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-file-pdf text-4xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-700 mb-2">Sube tu Estado de Cuenta</h3>
+                    <p class="text-slate-400 text-sm font-medium mb-6">Selecciona el PDF descargado de PayPal</p>
+                    <span
+                        class="bg-white px-6 py-3 rounded-xl shadow-sm text-xs font-black text-slate-600 border border-slate-200 group-hover:border-red-200 group-hover:text-red-500 transition-colors">
+                        SELECCIONAR PDF
+                    </span>
+                    <input type="file" id="pdfUpload" accept=".pdf" class="hidden" onchange="handlePdfUpload(this)">
+                </div>
+
+                <div class="flex items-center gap-4 my-6">
+                    <div class="h-px bg-slate-200 flex-grow"></div>
+                    <span class="text-slate-400 text-xs font-black uppercase">O usa un CSV</span>
+                    <div class="h-px bg-slate-200 flex-grow"></div>
+                </div>
+
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 mb-8">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-file-csv"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <h3 class="text-sm font-black text-slate-700">Archivo CSV</h3>
+                            <p id="fileName" class="text-xs text-slate-400 font-mono mt-1">Ningún archivo seleccionado
+                            </p>
+                        </div>
+                        <button onclick="document.getElementById('csvInput').click()"
+                            class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-xs font-black transition-all">
+                            EXAMINAR
+                        </button>
+                    </div>
+                    <input type="file" id="csvInput" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+
+                    <!-- Barra de progreso -->
+                    <div id="progressContainer" class="hidden mt-4">
+                        <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2">
+                            <span>Procesando...</span>
+                            <span id="progressText">0%</span>
+                        </div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="progressBar"
+                                class="bg-blue-600 h-full transition-all duration-300 shadow-[0_0_12px_rgba(37,99,235,0.4)]"
+                                style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <button id="btnProcess" onclick="handleImport()"
+                        class="mt-8 w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-black py-5 rounded-[2rem] shadow-xl transition-all flex items-center justify-center gap-4 transform active:scale-95 text-lg">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> INICIAR SINCRONIZACIÓN
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA: AUDITORÍA -->
+        <div id="tab-conciliate" class="tab-content h-full flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-8">
+            <!-- Buscador: compacto en móvil, expandido en desktop -->
+            <div class="bg-white p-4 lg:p-8 rounded-2xl lg:rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col shrink-0 lg:h-full relative"
+                style="max-height: 35vh;">
+                <div class="flex items-center justify-between mb-2 lg:mb-6">
+                    <div class="flex items-center gap-2 text-[#003087]">
+                        <i class="fa-solid fa-magnifying-glass-plus text-lg lg:text-3xl"></i>
+                        <h2 class="text-sm lg:text-xl font-black text-slate-800 tracking-tight">Buscador Inteligente
+                        </h2>
+                    </div>
+                </div>
+
+                <textarea id="whatsappInput" oninput="runConciliation()"
+                    class="flex-grow w-full p-3 lg:p-8 bg-slate-50 border border-slate-200 rounded-xl lg:rounded-[2rem] resize-none focus:ring-4 focus:ring-blue-100 outline-none text-sm lg:text-xl leading-relaxed transition-all placeholder:text-slate-300"
+                    placeholder="Pega el mensaje, monto o fecha aquí..."></textarea>
+                <div
+                    class="mt-2 lg:mt-4 flex items-center gap-2 text-[10px] lg:text-xs text-slate-400 font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-robot"></i> Auditoría automática
+                </div>
+            </div>
+
+            <!-- Resultados: ocupa el resto del espacio en móvil -->
+            <div class="flex flex-col gap-2 lg:gap-6 overflow-hidden flex-grow min-h-0">
+                <div class="flex items-center justify-between px-2">
+                    <h2 class="font-black text-slate-400 text-[10px] uppercase tracking-[0.2em]">
+                        <i class="fa-solid fa-clipboard-check mr-1"></i> Reporte
+                    </h2>
+                    <span
+                        class="text-[8px] lg:text-[9px] bg-blue-100 text-blue-700 px-2 py-1 rounded-lg font-black uppercase">Resultados</span>
+                </div>
+                <div id="conciliationResults"
+                    class="flex-grow overflow-y-auto pr-1 custom-scroll space-y-2 lg:space-y-6">
+                    <!-- Dinámico -->
+                    <div class="h-full flex flex-col items-center justify-center text-slate-300 opacity-40">
+                        <i class="fa-solid fa-microscope text-5xl lg:text-7xl mb-4"></i>
+                        <p class="text-xs lg:text-sm font-black uppercase tracking-widest">Esperando Datos</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA: PAGOS -->
+        <div id="tab-payments" class="tab-content hidden h-full flex flex-col lg:grid-cols-2 gap-4 lg:gap-8">
+            <!-- Lista de Pendientes -->
+            <div class="flex flex-col gap-2 lg:gap-6 overflow-hidden flex-grow min-h-0 order-2 lg:order-1">
+                <div class="flex items-center justify-between px-2">
+                    <h2 class="font-black text-slate-400 text-[10px] uppercase tracking-[0.2em]">
+                        <i class="fa-solid fa-file-invoice-dollar mr-1"></i> Pendiente por Pagar
+                    </h2>
+                    <span id="pendingCountBadge"
+                        class="text-[8px] lg:text-[9px] bg-purple-100 text-purple-700 px-2 py-1 rounded-lg font-black uppercase">0
+                        Pendientes</span>
+                </div>
+                <div id="paymentsList" class="flex-grow overflow-y-auto pr-1 custom-scroll space-y-2 lg:space-y-4">
+                    <!-- Dinámico -->
+                    <div class="h-full flex flex-col items-center justify-center text-slate-300 opacity-40">
+                        <i class="fa-solid fa-basket-shopping text-5xl lg:text-7xl mb-4"></i>
+                        <p class="text-xs lg:text-sm font-black uppercase tracking-widest">No hay pagos pendientes</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen Total -->
+            <div class="bg-slate-900 text-white p-6 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl flex flex-col justify-center order-1 lg:order-2 h-fit lg:h-auto overflow-y-auto custom-scroll"
+                style="max-height: 85vh;">
+                <h2 class="text-xl lg:text-3xl font-black mb-4 lg:mb-6 text-center tracking-tight">RESUMEN DE PAGO</h2>
+
+                <!-- Detalle de Operaciones -->
+                <div class="mb-2 lg:mb-4">
+                    <h3
+                        class="text-[10px] lg:text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-list"></i> Detalle de Operaciones
+                    </h3>
+                    <div id="paymentDetailList" class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
+                        <!-- Dinámico -->
+                    </div>
+                </div>
+
+                <div class="h-px bg-white/10 mb-2 lg:mb-4"></div>
+
+                <div class="space-y-2 lg:space-y-3 mb-4 lg:mb-6">
+                    <div class="flex justify-between items-center text-slate-400 font-medium text-xs lg:text-base">
+                        <span>Subtotal Neto</span>
+                        <span id="paymentSubtotal" class="font-mono text-white">$0.00</span>
+                    </div>
+                    <div class="flex justify-between items-center text-red-300 font-medium text-xs lg:text-base">
+                        <span>Comisión (7%)</span>
+                        <span id="paymentFee" class="font-mono text-red-400">-$0.00</span>
+                    </div>
+                    <div class="h-px bg-white/20 my-2"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm lg:text-xl font-black tracking-widest">TOTAL A PAGAR</span>
+                        <span id="paymentTotal"
+                            class="text-xl lg:text-4xl font-black text-emerald-400 tracking-tighter">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button onclick="copyPaymentReport()" id="btnCopyWhatsApp" disabled
+                        class="w-full py-2 lg:py-3 bg-[#25D366] hover:bg-[#20BD5A] disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-xl lg:rounded-2xl font-black text-[10px] lg:text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2">
+                        <i class="fa-brands fa-whatsapp text-base lg:text-xl"></i> COPIAR PARA WHATSAPP
+                    </button>
+                    <button onclick="markAllPaid()" id="btnPayAll" disabled
+                        class="w-full py-3 lg:py-4 bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-700 disabled:text-slate-500 text-slate-900 rounded-xl lg:rounded-3xl font-black text-[11px] lg:text-sm uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-check-to-slot text-base lg:text-xl"></i> MARCAR COMO PAGADO
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Firebase + Business Logic -->
+    <!-- Firebase + Business Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuración real para conciliador-pro-cloud
+        const firebaseConfig = {
+            apiKey: "AIzaSyAhZnvFz-lSlnaHnZ0Xe6GLbVyMY2I1c4k",
+            authDomain: "conciliador-pro-cloud.firebaseapp.com",
+            projectId: "conciliador-pro-cloud",
+            storageBucket: "conciliador-pro-cloud.firebasestorage.app",
+            messagingSenderId: "254004066171",
+            appId: "1:254004066171:web:195a074a258ae3ab7b2fde"
+        };
+
+        const appId = 'paypal-auditor-pro';
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let user = null;
+        let cache = [];
+        let currentFilter = 'all';
+        let currentPdfFile = null;
+        let currentCsvFile = null;
+        let unsubscribe = null; // Para detener la escucha al cerrar sesión
+
+        // --- AUTENTICACIÓN ---
+        const btnLogin = document.getElementById('btnLogin');
+        const loginOverlay = document.getElementById('loginOverlay');
+        const btnLogout = document.getElementById('btnLogout');
+
+        if (btnLogin) {
+            btnLogin.onclick = async () => {
+                try {
+                    await signInWithPopup(auth, provider);
+                } catch (err) {
+                    console.error(err);
+                    showToast("Error Auth: " + err.code, "error");
+                }
+            };
+        }
+
+        if (btnLogout) {
+            btnLogout.onclick = async () => {
+                try {
+                    await signOut(auth);
+                } catch (err) { console.error(err); }
+            };
+        }
+
+        onAuthStateChanged(auth, (u) => {
+            if (u) {
+                user = u;
+                loginOverlay.classList.add('hidden');
+                document.getElementById('statusText').innerText = "CONECTADO: " + user.email;
+                document.getElementById('statusText').title = "UID: " + user.uid; // Tooltip para debug
+                document.getElementById('dot').classList.replace('bg-yellow-400', 'bg-emerald-400');
+                document.getElementById('dot').classList.remove('animate-pulse');
+                console.log("User UID:", user.uid); // Log para debug
+                startRealtimeSync();
+            } else {
+                user = null;
+                if (unsubscribe) unsubscribe(); // Detener escucha anterior
+                loginOverlay.classList.remove('hidden');
+                document.getElementById('statusText').innerText = "SIN SESIÓN";
+                document.getElementById('dot').classList.replace('bg-emerald-400', 'bg-yellow-400');
+                document.getElementById('dot').classList.add('animate-pulse');
+                cache = [];
+                renderDashboard();
+            }
+        });
+
+        // --- DATOS EN TIEMPO REAL ---
+        function startRealtimeSync() {
+            if (!user) return;
+            if (unsubscribe) unsubscribe();
+
+            const coll = collection(db, 'artifacts', appId, 'users', user.uid, 'movements');
+            unsubscribe = onSnapshot(coll, (snapshot) => {
+                cache = snapshot.docs.map(d => d.data());
+                cache.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderDashboard();
+                // showToast("Datos actualizados", "info"); // Opcional: muy ruidoso si hay muchos cambios
+            }, (error) => {
+                console.error("Error sync:", error);
+                showToast("Error de sincronización", "error");
+            });
+        }
+
+        // Compatibilidad para funciones que llamaban a fetchMovements (ahora es automático)
+        window.fetchMovements = async () => {
+            // Ya no es necesario llamar manualmente, pero lo dejamos por compatibilidad
+            // Si no está escuchando, iniciamos
+            if (!unsubscribe) startRealtimeSync();
+        };
+
+        // --- EXPORT / IMPORT ---
+        window.exportData = () => {
+            if (!cache.length) { showToast("No hay datos para exportar", "error"); return; }
+            const dataStr = JSON.stringify(cache, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_conciliador_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("Respaldo descargado", "success");
+        };
+
+        window.importData = async (input) => {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) throw new Error("Formato inválido");
+
+                    showToast("Importando respaldo...", "info");
+                    let count = 0;
+                    for (const item of data) {
+                        if (item.id && item.amount) {
+                            const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'movements', item.id);
+                            await setDoc(ref, item);
+                            count++;
+                        }
+                    }
+                    await fetchMovements();
+                    showToast(`${count} movimientos importados`, "success");
+                } catch (err) { showToast("Error al importar archivo", "error"); console.error(err); }
+                input.value = '';
+            };
+            reader.readAsText(file);
+        };
+
+        // --- UI ---
+        // Tabs that use lg:grid for their layout
+        const lgGridTabs = ['tab-conciliate', 'tab-payments'];
+
+        window.showTab = (id) => {
+            // Hide all tabs: add hidden AND remove lg:grid to prevent override
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+                el.classList.remove('lg:grid');
+            });
+
+            // Show the target tab and restore lg:grid if needed
+            const activeTab = document.getElementById(`tab-${id}`);
+            activeTab.classList.remove('hidden');
+            if (lgGridTabs.includes(`tab-${id}`)) {
+                activeTab.classList.add('lg:grid');
+            }
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('border-blue-600', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-slate-400');
+            });
+            const activeBtn = document.getElementById(`nav-${id}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('border-transparent', 'text-slate-400');
+                activeBtn.classList.add('border-blue-600', 'text-blue-600');
+            }
+
+            if (id === 'payments') renderPayments();
+        };
+        window.setFilter = (filter) => {
+            currentFilter = filter;
+            document.querySelectorAll('[id^="filter-"]').forEach(b => {
+                b.classList.remove('bg-white', 'shadow-sm');
+                b.classList.add('text-slate-500');
+            });
+            document.getElementById(`filter-${filter}`).classList.add('bg-white', 'shadow-sm');
+            document.getElementById(`filter-${filter}`).classList.remove('text-slate-500');
+            renderDashboard();
+        };
+
+        function showToast(msg, type = 'info') {
+            const cont = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const colors = { error: 'bg-red-600', success: 'bg-emerald-600', info: 'bg-[#003087]' };
+            toast.className = `${colors[type]} text-white px-8 py-5 rounded-2xl shadow-2xl font-bold text-sm animate-card pointer-events-auto flex items-center gap-4 border border-white/20`;
+            toast.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-check'} text-xl"></i> ${msg}`;
+            cont.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'transition-all', 'duration-500');
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+
+        window.closeModal = () => document.getElementById('customModal').classList.remove('flex');
+
+        window.openBulkConfirm = () => {
+            const pendingCount = cache.filter(m => !m.reported).length;
+            if (pendingCount === 0) return;
+            document.getElementById('modalMessage').innerText = `¿Deseas marcar los ${pendingCount} movimientos como auditados permanentemente en la nube?`;
+            document.getElementById('customModal').classList.add('flex');
+            document.getElementById('modalConfirmBtn').onclick = markAllAsReported;
+        };
+
+        // --- NEGOCIO ---
+        function renderDashboard() {
+            const pending = cache.filter(m => !m.reported);
+            const done = cache.filter(m => m.reported);
+
+            document.getElementById('statTotal').innerText = cache.length;
+            document.getElementById('statPending').innerText = pending.length;
+            document.getElementById('statDone').innerText = done.length;
+
+            const bulkBtn = document.getElementById('btnBulk');
+            if (bulkBtn) bulkBtn.classList.toggle('hidden', pending.length === 0);
+
+            const list = document.getElementById('historyList');
+            list.innerHTML = '';
+
+            let displayList = cache;
+            if (currentFilter === 'pending') displayList = pending;
+            if (currentFilter === 'done') displayList = done;
+
+            if (!displayList.length) {
+                list.innerHTML = `<div class="py-20 text-center opacity-30"><i class="fa-solid fa-box-open text-5xl mb-4"></i><p class="font-black uppercase text-[10px]">Sin datos registrados</p></div>`;
+            } else {
+                displayList.slice(0, 100).forEach(m => {
+                    const displayDate = m.date.split('T')[0].split('-').reverse().join('/');
+                    const div = document.createElement('div');
+                    div.className = `flex flex-col p-6 rounded-3xl border transition-all ${m.reported ? 'bg-emerald-50 border-emerald-100' : 'bg-white border-slate-100 shadow-sm'}`;
+                    div.innerHTML = `
+                        <div class="flex justify-between items-center mb-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${m.reported ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}">
+                                    <i class="fa-solid ${m.reported ? 'fa-check-double' : 'fa-dollar-sign'}"></i>
+                                </div>
+                                <div>
+                                    <p class="text-base font-black text-slate-800">${m.name || 'Usuario PayPal'}</p>
+                                    <p class="text-[10px] font-mono text-slate-400">ID: ${m.id}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs font-black text-slate-400 uppercase">${displayDate}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4">
+                            <div class="bg-white/60 p-4 rounded-2xl border border-slate-200/50 text-center">
+                                <p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Bruto</p>
+                                <p class="text-base font-black text-slate-700">$${m.amount.toFixed(2)}</p>
+                            </div>
+                            <div class="bg-white/60 p-4 rounded-2xl border border-slate-200/50 text-center">
+                                <p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Fee</p>
+                                <p class="text-base font-black text-red-500">${(m.fee || 0).toFixed(2)}</p>
+                            </div>
+                            <div class="bg-white/60 p-4 rounded-2xl border border-slate-200/50 text-center">
+                                <p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Neto</p>
+                                <p class="text-base font-black text-emerald-600">$${(m.net || m.amount).toFixed(2)}</p>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+        }
+
+        async function markAllAsReported() {
+            closeModal();
+            if (!user) return;
+            const pending = cache.filter(m => !m.reported);
+            showToast("Actualizando nube...", "info");
+            try {
+                const now = new Date().toISOString();
+                for (const m of pending) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', m.id), { reported: true, reportedAt: now });
+                }
+                await fetchMovements();
+                showToast("Sincronización masiva exitosa", "success");
+                setFilter('done');
+            } catch (err) { showToast("Error al procesar lote", "error"); }
+        }
+
+        window.resetAllMovements = async () => {
+            if (!user || !cache.length) return;
+            document.getElementById('modalMessage').innerText = "⚠️ BORRADO TOTAL: Se eliminarán permanentemente todos los registros de la base de datos para pruebas. ¿Continuar?";
+            document.getElementById('customModal').classList.add('flex');
+            document.getElementById('modalConfirmBtn').onclick = async () => {
+                closeModal();
+                showToast("Eliminando todo...", "info");
+                try {
+                    for (const m of cache) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', m.id));
+                    }
+                    await fetchMovements();
+                    showToast("Base de datos vacía", "success");
+                } catch (err) { console.error(err); showToast("Error al borrar", "error"); }
+            };
+        };
+
+        const normalizeAmount = (str) => {
+            let clean = str.replace(/[^\d.,-]/g, '');
+            if (clean.includes(',') && clean.includes('.')) {
+                if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) return parseFloat(clean.replace(/\./g, '').replace(',', '.'));
+                else return parseFloat(clean.replace(/,/g, ''));
+            }
+            if (clean.includes(',')) return parseFloat(clean.replace(',', '.'));
+            return parseFloat(clean);
+        };
+
+        // --- PDF HANDLING ---
+        window.handlePdfSelect = (input) => {
+            if (input.files.length > 0) {
+                currentPdfFile = input.files[0];
+                document.getElementById('pdfName').innerText = currentPdfFile.name;
+                document.getElementById('pdfSize').innerText = (currentPdfFile.size / 1024).toFixed(2) + ' KB';
+                document.getElementById('pdfFileInfo').classList.remove('hidden');
+                document.getElementById('pdfUpload').parentElement.classList.add('hidden');
+            }
+        };
+
+
+        // --- CSV HANDLING ---
+        window.handleCsvSelect = (input) => {
+            if (input.files.length > 0) {
+                currentCsvFile = input.files[0];
+                document.getElementById('pdfName').innerText = currentCsvFile.name;
+                document.getElementById('pdfSize').innerText = (currentCsvFile.size / 1024).toFixed(2) + ' KB';
+                document.getElementById('pdfFileInfo').classList.remove('hidden');
+                document.getElementById('csvInput').parentElement.classList.add('hidden');
+                // Hide PDF upload too to avoid confusion
+                document.getElementById('pdfUpload').parentElement.classList.add('hidden');
+            }
+        };
+
+        window.clearPdf = () => {
+            currentPdfFile = null;
+            currentCsvFile = null;
+
+            const pdfInput = document.getElementById('pdfUpload');
+            if (pdfInput) {
+                pdfInput.value = '';
+                const btnText = pdfInput.previousElementSibling;
+                if (btnText) btnText.innerText = "SELECCIONAR PDF";
+            }
+
+            const csvInput = document.getElementById('csvInput');
+            if (csvInput) csvInput.value = '';
+
+            const fileName = document.getElementById('fileName');
+            if (fileName) fileName.innerText = "Ningún archivo seleccionado";
+        };
+
+        // Parse a single transaction block from PDF text
+        function parseTransactionBlock(text) {
+            // 1. Extract Date (MM/DD/YYYY)
+            const dateMatch = text.match(/(\d{2}\/\d{2}\/\d{4})/);
+            if (!dateMatch) return null;
+            const dateStr = dateMatch[1];
+
+            // 2. Extract ID
+            // Pattern: "Id.: XXXXX" or just "Id.:XXXXX"
+            // Sometimes it has spaces or newlines before
+            const idMatch = text.match(/Id\.:\s*([A-Z0-9]+)/i);
+            if (!idMatch) return null;
+            const transId = idMatch[1];
+
+            // 3. Extract Amounts
+            // Look for "USD" followed by numbers
+            // Example: "USD 23.35 -1.05 22.30"
+            // Regex to find 3 numbers (possibly negative) after "USD"
+            // \s+([-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s+([-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s+([-]?\d{1,3}(?:,\d{3})*(?:\.\d{2})?)
+            // Simplified: after USD, find 3 floating point numbers
+            const usdMatch = text.match(/USD\s+([-\d.,]+)\s+([-\d.,]+)\s+([-\d.,]+)/);
+            if (!usdMatch) return null; // Maybe a transfer or different structure?
+
+            const amount = normalizeAmount(usdMatch[1]);
+            const fee = normalizeAmount(usdMatch[2]);
+            const net = normalizeAmount(usdMatch[3]);
+
+            if (isNaN(amount) || amount === 0) return null;
+
+            // 4. Extract Name / Description
+            // It's usually between Date and "USD" (or "Id.:")
+            // Remove Date
+            let desc = text.replace(dateMatch[0], '');
+            // Remove ID part
+            desc = desc.replace(idMatch[0], '');
+            // Remove USD and amounts
+            desc = desc.substring(0, desc.indexOf('USD'));
+            // Remove "Pagomóvil:" prefix if present
+            desc = desc.replace(/Pagomóvil:/i, '').replace(/Pago general:/i, '').replace(/Retiro iniciado por/i, 'Retiro: ');
+            // Clean up whitespace
+            desc = desc.replace(/\s+/g, ' ').trim();
+
+            // Fix Date Format to ISO
+            const dp = dateStr.split('/');
+            const isoDate = new Date(`${dp[2]}-${dp[0]}-${dp[1]}`).toISOString();
+
+            return { id: transId, amount, fee, net, name: desc, date: isoDate, reported: false };
+        }
+
+        window.handlePdfUpload = (input) => {
+            const file = input.files[0];
+            if (!file) return;
+            currentPdfFile = file;
+            currentCsvFile = null;
+            document.getElementById('fileName').innerText = "Ningún archivo seleccionado";
+            input.previousElementSibling.innerText = file.name;
+            showToast("PDF Seleccionado", "info");
+        };
+
+        window.handleFileSelect = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            currentCsvFile = file;
+            currentPdfFile = null;
+            document.getElementById('fileName').innerText = file.name;
+            // Reset PDF UI if needed
+            const pdfInput = document.getElementById('pdfUpload');
+            if (pdfInput) {
+                pdfInput.value = '';
+                pdfInput.previousElementSibling.innerText = "SELECCIONAR PDF";
+            }
+            showToast("CSV Seleccionado", "info");
+        };
+
+        function parseCsvAndGetTransactions(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const text = e.target.result;
+                    const lines = text.split('\n');
+                    const transactions = [];
+
+                    let headers = [];
+                    let startRow = 0;
+
+                    // Detect header row — support English AND Spanish PayPal CSVs
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        const isEnglish = line.includes("Date") && line.includes("Gross") && line.includes("Transaction ID");
+                        const isSpanish = line.includes("Fecha") && line.includes("Importe") && line.includes("transacción");
+                        if (isEnglish || isSpanish) {
+                            headers = line.replace(/"/g, '').split(',');
+                            startRow = i + 1;
+                            break;
+                        }
+                    }
+
+                    if (headers.length === 0) return reject(new Error("No se detectó el formato CSV de PayPal"));
+
+                    // Helper: find column index by trying multiple possible names
+                    const findCol = (...names) => {
+                        for (const name of names) {
+                            const idx = headers.findIndex(h => h.trim().toLowerCase().includes(name.toLowerCase()));
+                            if (idx !== -1) return idx;
+                        }
+                        return -1;
+                    };
+
+                    const idxDate = findCol("Fecha", "Date");
+                    const idxName = findCol("Nombre", "Name");
+                    const idxGross = findCol("Importe", "Gross");
+                    const idxFee = findCol("Tarifas", "Fee");
+                    const idxNet = findCol("Total", "Net");
+                    const idxId = findCol("Id. de transacción", "Transaction ID");
+
+                    for (let i = startRow; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
+
+                        // Parse CSV row respecting quoted fields (handles commas inside quotes)
+                        const cols = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let c = 0; c < lines[i].length; c++) {
+                            const ch = lines[i][c];
+                            if (ch === '"') { inQuotes = !inQuotes; continue; }
+                            if (ch === ',' && !inQuotes) { cols.push(current.trim()); current = ''; continue; }
+                            current += ch;
+                        }
+                        cols.push(current.trim());
+
+                        if (!cols[idxId] || !cols[idxGross]) continue;
+
+                        const amount = parseFloat(cols[idxGross].replace(/,/g, ''));
+                        if (isNaN(amount) || amount <= 0) continue; // Omitir retiros (negativos)
+
+                        const dateStr = cols[idxDate]; // MM/DD/YYYY
+                        const dp = dateStr.split('/');
+                        const isoDate = new Date(`${dp[2]}-${dp[0]}-${dp[1]}`).toISOString();
+
+                        const fee = parseFloat(cols[idxFee].replace(/,/g, '')) || 0;
+
+                        transactions.push({
+                            id: cols[idxId],
+                            amount: amount,
+                            fee: fee,
+                            net: (idxNet !== -1 && cols[idxNet]) ? parseFloat(cols[idxNet].replace(/,/g, '')) || amount : amount + fee,
+                            name: cols[idxName] || '',
+                            date: isoDate,
+                            reported: false
+                        });
+                    }
+                    resolve(transactions);
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        window.handleImport = async () => {
+            if (!currentPdfFile && !currentCsvFile) { showToast("Por favor selecciona un archivo", "error"); return; }
+
+            const btn = document.getElementById('btnProcess');
+            const progBox = document.getElementById('progressContainer');
+            btn.classList.add('hidden'); progBox.classList.remove('hidden');
+
+            try {
+                let transactions = [];
+
+                if (currentPdfFile) {
+                    const arrayBuffer = await currentPdfFile.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                    let fullText = "";
+
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += " " + textContent.items.map(item => item.str).join(' ');
+
+                        const pct = Math.round((i / pdf.numPages) * 50);
+                        document.getElementById('progressBar').style.width = pct + '%';
+                        document.getElementById('progressText').innerText = `Lector PDF: ${pct}%`;
+                    }
+
+                    const dateRegex = /\d{2}\/\d{2}\/\d{4}/g;
+                    let match;
+                    const indices = [];
+                    while ((match = dateRegex.exec(fullText)) !== null) {
+                        indices.push(match.index);
+                    }
+
+                    for (let i = 0; i < indices.length; i++) {
+                        const start = indices[i];
+                        const end = indices[i + 1] || fullText.length;
+                        const block = fullText.substring(start, end);
+                        const tx = parseTransactionBlock(block);
+                        if (tx) transactions.push(tx);
+                    }
+                } else if (currentCsvFile) {
+                    document.getElementById('progressBar').style.width = '20%';
+                    document.getElementById('progressText').innerText = `Leyendo CSV...`;
+                    transactions = await parseCsvAndGetTransactions(currentCsvFile);
+                }
+
+                if (transactions.length === 0) throw new Error("No se encontraron transacciones válidas");
+
+                // Save to Firestore
+                let savedCount = 0;
+                for (let i = 0; i < transactions.length; i++) {
+                    const item = transactions[i];
+                    const pct = (currentPdfFile ? 50 : 20) + Math.round(((i + 1) / transactions.length) * (currentPdfFile ? 50 : 80));
+                    document.getElementById('progressBar').style.width = pct + '%';
+                    document.getElementById('progressText').innerText = `Guardando: ${pct}%`;
+
+                    const exists = cache.find(m => m.id === item.id);
+                    if (!exists) {
+                        await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', item.id), item);
+                        savedCount++;
+                    }
+                }
+
+                showToast(`Archivo Procesado: ${savedCount} nuevos`, "success");
+                await fetchMovements();
+                clearPdf(); // Clears both
+                showTab('dashboard');
+
+            } catch (err) {
+                console.error(err);
+                showToast("Error al importar: " + err.message, "error");
+            } finally {
+                progBox.classList.add('hidden'); btn.classList.remove('hidden');
+            }
+        };
+
+        // --- BÚSQUEDA AUDITORÍA PRO ---
+        window.runConciliation = () => {
+            const txt = document.getElementById('whatsappInput').value;
+            const res = document.getElementById('conciliationResults');
+            res.innerHTML = '';
+
+            if (!txt.trim()) {
+                res.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-300 opacity-40"><i class="fa-solid fa-microscope text-7xl mb-6"></i><p class="text-sm font-black uppercase tracking-widest">Esperando Datos de Auditoría</p></div>`;
+                return;
+            }
+
+            let resultsHTML = "";
+            let found = false;
+
+            // 1. MONTOS
+            const amounts = txt.match(/(\d+(?:[.,]\d+)*)/g);
+            if (amounts) {
+                const unique = [...new Set(amounts.map(a => normalizeAmount(a)).filter(n => n > 0 && !isNaN(n)))];
+                unique.forEach(amt => {
+                    let matches = cache.filter(m => Math.abs(m.amount - amt) < 0.05);
+                    const inputLower = txt.toLowerCase();
+
+                    matches.sort((a, b) => {
+                        const scoreA = (a.name || "").toLowerCase().split(' ').some(p => p.length > 3 && inputLower.includes(p)) ? 1 : 0;
+                        const scoreB = (b.name || "").toLowerCase().split(' ').some(p => p.length > 3 && inputLower.includes(p)) ? 1 : 0;
+                        return scoreB - scoreA;
+                    });
+
+                    let blockHTML = `<div class="bg-white p-4 rounded-2xl shadow-md border border-slate-200 animate-card mb-4"><div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100"><span class="text-lg font-black text-[#0070ba]">PAGO: $${amt.toFixed(2)}</span><span class="text-[9px] font-black text-slate-400 uppercase tracking-wider">${matches.length} COINC.</span></div>`;
+
+                    if (!matches.length) {
+                        blockHTML += `<p class="text-xs text-red-500 font-bold p-3 bg-red-50 rounded-xl border border-red-100"><i class="fa-solid fa-triangle-exclamation mr-1"></i>No encontrado en historial.</p>`;
+                    } else {
+                        matches.forEach(m => blockHTML += renderAuditCard(m, inputLower));
+                        found = true;
+                    }
+                    blockHTML += `</div>`;
+                    resultsHTML += blockHTML;
+                });
+            }
+
+            // 2. FECHA (DD/MM/AAAA)
+            const dateMatch = txt.match(/\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/);
+            if (dateMatch) {
+                const d = dateMatch[1].padStart(2, '0');
+                const m = dateMatch[2].padStart(2, '0');
+                let y = dateMatch[3];
+                if (y.length === 2) y = '20' + y;
+                const searchDate = `${y}-${m}-${d}`;
+                // Results use compact format below
+                const dateResults = cache.filter(x => x.date.startsWith(searchDate));
+                if (dateResults.length > 0) {
+                    let dateHTML = `<div class="bg-slate-900 p-2 rounded-xl shadow-lg text-white animate-card mt-4"><div class="flex justify-between items-center mb-2 pb-1 border-b border-white/20"><span class="text-xs font-black uppercase tracking-tight"><i class="fa-regular fa-calendar-check mr-1"></i>DÍA: ${d}/${m}/${y}</span><span class="text-[8px] font-black opacity-50">${dateResults.length} TOTAL</span></div>`;
+                    dateResults.forEach(m => dateHTML += renderAuditCard(m, txt.toLowerCase(), true));
+                    dateHTML += `</div>`;
+                    resultsHTML += dateHTML;
+                    found = true;
+                }
+            }
+
+            // 3. SOLO NOMBRE
+            if (!found) {
+                const inputLower = txt.toLowerCase();
+                const nameMatches = cache.filter(m => {
+                    const name = (m.name || "").toLowerCase();
+                    const parts = inputLower.split(' ').filter(p => p.length > 3);
+                    return parts.some(p => name.includes(p));
+                });
+
+                if (nameMatches.length > 0) {
+                    let nameHTML = `<div class="bg-white p-4 rounded-2xl shadow-md border border-slate-200 mb-4"><div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100"><span class="text-sm font-black text-purple-600 uppercase">RESULTADOS POR NOMBRE</span></div>`;
+                    nameMatches.forEach(m => nameHTML += renderAuditCard(m, inputLower));
+                    nameHTML += `</div>`;
+                    resultsHTML += nameHTML;
+                    found = true;
+                }
+            }
+
+            res.innerHTML = found ? resultsHTML : `<div class="p-16 text-center text-slate-400 text-sm font-black uppercase tracking-widest leading-loose"><i class="fa-solid fa-circle-info block text-4xl mb-4"></i>No se detectaron montos,<br>fechas ni nombres válidos</div>`;
+        };
+
+        function renderAuditCard(m, inputLower, isDateContext = false) {
+            const isRep = m.reported;
+            const isPending = m.pendingPayment;
+            const isPaid = m.paid;
+
+            const displayDate = m.date.split('T')[0].split('-').reverse().join('/');
+            const nameMatch = (m.name || "").toLowerCase().split(' ').some(p => p.length > 3 && inputLower.includes(p));
+
+            let cardBg = isDateContext ? "bg-white/10" : "bg-slate-50 border-slate-200";
+            if (!isDateContext) {
+                if (nameMatch) cardBg = "bg-emerald-50 border-emerald-200";
+                else if (isRep && !isPending && !isPaid) cardBg = "bg-orange-50/50 border-orange-100";
+                else if (isPending) cardBg = "bg-purple-50 border-purple-100";
+                else if (isPaid) cardBg = "bg-green-50 border-green-100";
+            }
+
+            const textColor = isDateContext ? "text-white" : "text-slate-800";
+            const subColor = isDateContext ? "text-indigo-200" : "text-slate-400";
+
+            return `
+            <div class="flex flex-col gap-2 p-3 mb-2 rounded-xl border transition-all ${cardBg}">
+                <div class="flex justify-between items-center gap-2">
+                    <div class="flex items-center gap-2 min-w-0 flex-grow">
+                        <p class="text-sm font-black ${textColor} truncate">${m.name || 'Usuario PayPal'}</p>
+                        ${nameMatch ? '<span class="bg-emerald-600 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase">Match</span>' : ''}
+                        ${isRep ? '<span class="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase"><i class="fa-solid fa-check"></i> Auditado</span>' : ''}
+                        ${isPending ? '<span class="bg-purple-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase"><i class="fa-solid fa-clock"></i> Por Pagar</span>' : ''}
+                        ${isPaid ? '<span class="bg-green-600 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase"><i class="fa-solid fa-check-double"></i> Pagado</span>' : ''}
+                    </div>
+                    <span class="text-[9px] ${subColor} font-mono shrink-0">${displayDate}</span>
+                </div>
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="${textColor} font-black">$${m.amount.toFixed(2)}</span>
+                        <span class="${isDateContext ? 'text-white/60' : 'text-red-400'} font-bold">Fee: ${(m.fee || 0).toFixed(2)}</span>
+                        <span class="${isDateContext ? 'text-white/80' : 'text-emerald-500'} font-bold">Neto: $${(m.net || m.amount).toFixed(2)}</span>
+                    </div>
+                    <div class="flex gap-2">
+                         <button onclick="markReported('${m.id}')" ${(isRep || isPaid) ? 'disabled' : ''} class="shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${(isRep || isPaid) ? 'bg-black/10 text-slate-400 cursor-not-allowed' : (isDateContext ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-[#0070ba] text-white hover:bg-[#005ea6] shadow-md')}">
+                            <i class="fa-solid ${isRep ? 'fa-check' : 'fa-check-double'} mr-1"></i>${isRep ? 'Listo' : 'Conciliar'}
+                        </button>
+                        ${(isRep && !isPending && !isPaid) ? `
+                        <button onclick="addToPayment('${m.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all bg-purple-600 text-white hover:bg-purple-500 shadow-md">
+                            <i class="fa-solid fa-plus mr-1"></i>Pago
+                        </button>` : ''}
+                    </div>
+                </div>
+                <p class="text-[9px] ${subColor} font-mono truncate">ID: ${m.id}</p>
+            </div>`;
+        }
+
+        window.markReported = async (id) => {
+            if (!user) return;
+            try {
+                const now = new Date().toISOString();
+                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', id), { reported: true, reportedAt: now });
+                await fetchMovements();
+                showToast("Sincronización Cloud exitosa", "success");
+                window.runConciliation();
+            } catch (err) { showToast("Error al guardar en la nube", "error"); }
+        };
+
+        // --- PAYMENT MODULE ---
+        window.addToPayment = async (id) => {
+            if (!user) return;
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', id), {
+                    pendingPayment: true,
+                    updatedAt: new Date().toISOString()
+                });
+                showToast("Agregado a pagos pendientes", "success");
+                // Refresh UI if needed
+                const btn = document.querySelector(`button[onclick="addToPayment('${id}')"]`);
+                if (btn) btn.parentElement.innerHTML = '<span class="text-purple-500 font-bold text-[10px] uppercase">En lista de pago</span>';
+
+                // Update local cache manually to reflect change immediately without full fetch
+                const item = cache.find(m => m.id === id);
+                if (item) item.pendingPayment = true;
+                renderPayments();
+            } catch (err) { console.error(err); showToast("Error al actualizar", "error"); }
+        };
+
+        window.removeFromPayment = async (id) => {
+            if (!user) return;
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', id), {
+                    pendingPayment: false,
+                    updatedAt: new Date().toISOString()
+                });
+                showToast("Removido de pagos pend.", "success");
+
+                // Update local cache
+                const item = cache.find(m => m.id === id);
+                if (item) item.pendingPayment = false;
+                renderPayments();
+            } catch (err) { console.error(err); showToast("Error al remover", "error"); }
+        };
+
+        window.renderPayments = () => {
+            const list = document.getElementById('paymentsList');
+            if (!list) return;
+
+            const pendingList = cache.filter(m => m.pendingPayment && !m.paid)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // Update badge
+            const badge = document.getElementById('pendingCountBadge');
+            if (badge) badge.innerText = `${pendingList.length} Pendientes`;
+
+            // Calculate totals
+            const subtotal = pendingList.reduce((acc, m) => acc + (m.net || m.amount), 0);
+            const commission = subtotal * 0.07;
+            const total = subtotal - commission;
+
+            const elSub = document.getElementById('paymentSubtotal');
+            const elFee = document.getElementById('paymentFee');
+            const elTot = document.getElementById('paymentTotal');
+            const btnPay = document.getElementById('btnPayAll');
+
+            if (elSub) elSub.innerText = `$${subtotal.toFixed(2)}`;
+            if (elFee) elFee.innerText = `-$${commission.toFixed(2)}`;
+            if (elTot) elTot.innerText = `$${total.toFixed(2)}`;
+            if (btnPay) btnPay.disabled = pendingList.length === 0;
+
+            // WhatsApp button
+            const btnWA = document.getElementById('btnCopyWhatsApp');
+            if (btnWA) btnWA.disabled = pendingList.length === 0;
+
+            // Render detail list inside the dark summary panel
+            const detailList = document.getElementById('paymentDetailList');
+            if (detailList) {
+                if (pendingList.length === 0) {
+                    detailList.innerHTML = `<p class="text-slate-500 text-xs text-center py-3 italic">Sin operaciones pendientes</p>`;
+                } else {
+                    detailList.innerHTML = pendingList.map(m => {
+                        const d = m.date.split('T')[0].split('-').reverse().join('/');
+                        const amount = (m.net || m.amount).toFixed(2);
+                        return `<div class="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2 text-sm">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <span class="text-[10px] text-slate-500 font-mono shrink-0">${d}</span>
+                                <span class="text-white font-semibold truncate">${m.name || 'Usuario'}</span>
+                            </div>
+                            <span class="text-emerald-400 font-black font-mono shrink-0">$${amount}</span>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            if (pendingList.length === 0) {
+                list.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-300 opacity-40">
+                        <i class="fa-solid fa-basket-shopping text-5xl lg:text-7xl mb-4"></i>
+                        <p class="text-xs lg:text-sm font-black uppercase tracking-widest">No hay pagos pendientes</p>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            pendingList.forEach(m => {
+                const displayDate = m.date.split('T')[0].split('-').reverse().join('/');
+                html += `
+                <div class="flex flex-col p-3 rounded-xl border border-purple-100 bg-purple-50/50 transition-all">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <i class="fa-solid fa-file-invoice-dollar text-purple-500"></i>
+                            <p class="text-sm font-black text-slate-700 truncate">${m.name || 'Usuario'}</p>
+                        </div>
+                        <button onclick="removeFromPayment('${m.id}')" class="text-red-400 hover:text-red-600 transition-colors p-1" title="Quitar de la lista">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] text-slate-400 font-mono">${displayDate}</span>
+                        <span class="text-base font-black text-slate-800">$${(m.net || m.amount).toFixed(2)}</span>
+                    </div>
+                </div>`;
+            });
+            list.innerHTML = html;
+        };
+
+        window.copyPaymentReport = async () => {
+            const pendingList = cache.filter(m => m.pendingPayment && !m.paid)
+                .sort((a, b) => new Date(a.date) - new Date(b.date));
+            if (pendingList.length === 0) return;
+
+            const subtotal = pendingList.reduce((acc, m) => acc + (m.net || m.amount), 0);
+            const commission = subtotal * 0.07;
+            const total = subtotal - commission;
+
+            const today = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+            let lines = [];
+            lines.push(`💰 *REPORTE DE PAGO*`);
+            lines.push(`📅 Fecha: ${today}`);
+            lines.push(``);
+            lines.push(`📋 *Detalle de operaciones:*`);
+
+            pendingList.forEach(m => {
+                const d = m.date.split('T')[0].split('-').reverse().join('/');
+                const amount = (m.net || m.amount).toFixed(2);
+                lines.push(`• ${d} — ${m.name || 'Usuario'} — $${amount}`);
+            });
+
+            lines.push(``);
+            lines.push(`💵 Subtotal: $${subtotal.toFixed(2)}`);
+            lines.push(`📌 Comisión (7%): -$${commission.toFixed(2)}`);
+            lines.push(`━━━━━━━━━━━━━━━━`);
+            lines.push(`✅ *TOTAL A PAGAR: $${total.toFixed(2)}*`);
+
+            const text = lines.join('\n');
+
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('Reporte copiado al portapapeles', 'success');
+
+                // Visual feedback on button
+                const btn = document.getElementById('btnCopyWhatsApp');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check text-xl"></i> ¡COPIADO!';
+                btn.classList.remove('bg-[#25D366]');
+                btn.classList.add('bg-emerald-600');
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.classList.remove('bg-emerald-600');
+                    btn.classList.add('bg-[#25D366]');
+                }, 2000);
+            } catch (err) {
+                console.error('Clipboard error:', err);
+                showToast('Error al copiar', 'error');
+            }
+        };
+
+        window.markAllPaid = async () => {
+            if (!user) return;
+            const pendingList = cache.filter(m => m.pendingPayment && !m.paid);
+            if (pendingList.length === 0) return;
+
+            if (!confirm(`¿Confirmas marcar ${pendingList.length} transacciones como PAGADAS?`)) return;
+
+            const btn = document.getElementById('btnPayAll');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> PROCESANDO...';
+
+            try {
+                const now = new Date().toISOString();
+                const batchPromises = pendingList.map(m =>
+                    updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'movements', m.id), {
+                        paid: true,
+                        paidAt: now
+                    })
+                );
+                await Promise.all(batchPromises);
+                showToast("¡Pagos registrados exitosamente!", "success");
+
+                // Update local cache manually
+                pendingList.forEach(m => {
+                    const item = cache.find(i => i.id === m.id);
+                    if (item) { item.paid = true; item.paidAt = now; }
+                });
+
+                renderPayments(); // Refresh list (should be empty now)
+
+            } catch (err) {
+                console.error(err);
+                showToast("Error al procesar pagos", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check-to-slot text-xl lg:text-2xl"></i> MARCAR COMO PAGADO';
+            }
+        };
+
+    </script>
+</body>
+
+</html>

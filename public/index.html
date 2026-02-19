@@ -60,6 +60,14 @@
         #customModal.flex {
             display: flex;
         }
+
+        #abonoModal {
+            display: none;
+        }
+
+        #abonoModal.flex {
+            display: flex;
+        }
     </style>
 </head>
 
@@ -85,6 +93,43 @@
                         class="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all">Cancelar</button>
                     <button id="modalConfirmBtn"
                         class="flex-1 px-6 py-4 rounded-2xl bg-[#0070ba] text-white font-bold hover:bg-[#005ea6] shadow-xl shadow-blue-200 transition-all">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar Abono -->
+    <div id="abonoModal"
+        class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 animate-card">
+            <div class="text-center">
+                <div
+                    class="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-coins text-3xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-slate-800 mb-2">Agregar Abono</h3>
+
+                <div class="text-left mb-4">
+                    <label
+                        class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Concepto</label>
+                    <input type="text" id="abonoDescInput"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        placeholder="Ej. Adelanto">
+                </div>
+
+                <div class="text-left mb-6">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Monto
+                        ($)</label>
+                    <input type="number" step="0.01" id="abonoAmountInput"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                        placeholder="Ej. 10.50">
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="closeAbonoModal()"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-all">Cancelar</button>
+                    <button onclick="confirmAbonoModal()"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-purple-600 text-white font-bold hover:bg-purple-500 shadow-xl shadow-purple-200 transition-all">Agregar</button>
                 </div>
             </div>
         </div>
@@ -421,7 +466,20 @@
                         <span>Comisión (7%)</span>
                         <span id="paymentFee" class="font-mono text-red-400">-$0.00</span>
                     </div>
-                    <div class="h-px bg-white/20 my-2"></div>
+
+                    <!-- Nueva sección de Abonos -->
+                    <div class="flex flex-col gap-2 mt-3 mb-1">
+                        <div
+                            class="text-[10px] lg:text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
+                            <span>Abonos y Deducciones</span>
+                        </div>
+                        <div id="abonosList" class="space-y-1"></div>
+                        <button onclick="promptAbono()"
+                            class="w-full mt-1 py-1.5 border border-dashed border-slate-600 rounded-lg text-slate-400 text-[10px] lg:text-xs font-black uppercase hover:border-white hover:text-white transition-all">+
+                            Agregar Abono / Deducción</button>
+                    </div>
+
+                    <div class="h-px bg-white/20 my-2 mt-4"></div>
                     <div class="flex justify-between items-center">
                         <span class="text-sm lg:text-xl font-black tracking-widest">TOTAL A PAGAR</span>
                         <span id="paymentTotal"
@@ -1210,6 +1268,48 @@
             } catch (err) { console.error(err); showToast("Error al remover", "error"); }
         };
 
+        // --- ABONOS GLOBALES ---
+        window.abonosList = [];
+
+        window.promptAbono = () => {
+            document.getElementById('abonoDescInput').value = '';
+            document.getElementById('abonoAmountInput').value = '';
+            document.getElementById('abonoModal').classList.add('flex');
+            setTimeout(() => document.getElementById('abonoDescInput').focus(), 100);
+        };
+
+        window.closeAbonoModal = () => {
+            document.getElementById('abonoModal').classList.remove('flex');
+        };
+
+        window.confirmAbonoModal = () => {
+            const desc = document.getElementById('abonoDescInput').value.trim();
+            const amtStr = document.getElementById('abonoAmountInput').value.trim();
+            if (!desc) {
+                showToast("Por favor ingresa un concepto", "error");
+                return;
+            }
+            if (!amtStr) {
+                showToast("Por favor ingresa un monto", "error");
+                return;
+            }
+            const amt = parseFloat(amtStr.replace(/,/g, '.'));
+            if (isNaN(amt) || amt <= 0) {
+                showToast("Monto inválido", "error");
+                return;
+            }
+            window.abonosList.push({ id: Date.now(), description: desc, amount: amt });
+            window.renderPayments();
+            showToast("Abono agregado", "success");
+            closeAbonoModal();
+        };
+
+        window.removeAbono = (id) => {
+            window.abonosList = window.abonosList.filter(a => a.id !== id);
+            window.renderPayments();
+            showToast("Abono removido", "info");
+        };
+
         window.renderPayments = () => {
             const list = document.getElementById('paymentsList');
             if (!list) return;
@@ -1224,7 +1324,30 @@
             // Calculate totals
             const subtotal = pendingList.reduce((acc, m) => acc + (m.net || m.amount), 0);
             const commission = subtotal * 0.07;
-            const total = subtotal - commission;
+            let total = subtotal - commission;
+
+            // Render Abonos
+            const listaAbonosEl = document.getElementById('abonosList');
+            let totalAbonos = 0;
+            if (listaAbonosEl) {
+                if (window.abonosList.length === 0) {
+                    listaAbonosEl.innerHTML = '<p class="text-[10px] text-slate-500 italic text-center py-1">Sin abonos registrados</p>';
+                } else {
+                    listaAbonosEl.innerHTML = window.abonosList.map(a => {
+                        totalAbonos += a.amount;
+                        return `<div class="flex justify-between items-center bg-white/5 px-2 py-1.5 rounded-lg">
+                            <span class="text-[10px] text-slate-300 truncate">${a.description}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-mono text-red-400 font-bold">-$${a.amount.toFixed(2)}</span>
+                                <button onclick="removeAbono(${a.id})" class="text-slate-500 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
+            total = total - totalAbonos;
+            if (total < 0) total = 0;
 
             const elSub = document.getElementById('paymentSubtotal');
             const elFee = document.getElementById('paymentFee');
@@ -1298,7 +1421,12 @@
 
             const subtotal = pendingList.reduce((acc, m) => acc + (m.net || m.amount), 0);
             const commission = subtotal * 0.07;
-            const total = subtotal - commission;
+            let totalAbonos = 0;
+            if (window.abonosList) {
+                totalAbonos = window.abonosList.reduce((acc, a) => acc + a.amount, 0);
+            }
+            let total = subtotal - commission - totalAbonos;
+            if (total < 0) total = 0;
 
             const today = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -1317,6 +1445,15 @@
             lines.push(``);
             lines.push(`💵 Subtotal: $${subtotal.toFixed(2)}`);
             lines.push(`📌 Comisión (7%): -$${commission.toFixed(2)}`);
+
+            if (window.abonosList && window.abonosList.length > 0) {
+                lines.push(``);
+                lines.push(`➖ *Abonos y Deducciones:*`);
+                window.abonosList.forEach(a => {
+                    lines.push(`• ${a.description}: -$${a.amount.toFixed(2)}`);
+                });
+            }
+
             lines.push(`━━━━━━━━━━━━━━━━`);
             lines.push(`✅ *TOTAL A PAGAR: $${total.toFixed(2)}*`);
 

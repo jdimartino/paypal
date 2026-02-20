@@ -14,6 +14,8 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     </script>
+    <!-- Tesseract.js (para OCR de imágenes) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -291,6 +293,8 @@
                             <button onclick="setFilter('toPay')" id="filter-toPay"
                                 class="text-slate-500 hover:text-slate-700 px-2 py-1 rounded-md font-black text-[10px] uppercase transition-all whitespace-nowrap">POR
                                 PAGAR</button>
+                            <button onclick="setFilter('paid')" id="filter-paid"
+                                class="text-slate-500 hover:text-slate-700 px-2 py-1 rounded-md font-black text-[10px] uppercase transition-all whitespace-nowrap">PAGADOS</button>
                         </div>
                     </div>
                     <div class="flex items-center gap-1">
@@ -342,19 +346,39 @@
                     <input type="file" id="jsonInput" accept=".json" class="hidden" onchange="importData(this)">
                 </div>
 
-                <div class="w-full border-2 border-dashed border-slate-300 rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-10 flex flex-col items-center justify-center cursor-pointer group"
-                    onclick="document.getElementById('pdfUpload').click()">
-                    <div
-                        class="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                        <i class="fa-solid fa-file-pdf text-4xl"></i>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Caja PDF -->
+                    <div class="w-full border-2 border-dashed border-slate-300 rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-8 flex flex-col items-center justify-center cursor-pointer group"
+                        onclick="document.getElementById('pdfUpload').click()">
+                        <div
+                            class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-file-pdf text-3xl"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-700 mb-1 text-center">Estado de Cuenta</h3>
+                        <p class="text-slate-400 text-xs font-medium mb-4 text-center">PDF descargado de PayPal</p>
+                        <span
+                            class="bg-white px-4 py-2 flex-shrink-0 rounded-xl shadow-sm text-xs font-black text-slate-600 border border-slate-200 group-hover:border-red-200 group-hover:text-red-500 transition-colors uppercase">
+                            Seleccionar PDF
+                        </span>
+                        <input type="file" id="pdfUpload" accept=".pdf" class="hidden" onchange="handlePdfUpload(this)">
                     </div>
-                    <h3 class="text-xl font-black text-slate-700 mb-2">Sube tu Estado de Cuenta</h3>
-                    <p class="text-slate-400 text-sm font-medium mb-6">Selecciona el PDF descargado de PayPal</p>
-                    <span
-                        class="bg-white px-6 py-3 rounded-xl shadow-sm text-xs font-black text-slate-600 border border-slate-200 group-hover:border-red-200 group-hover:text-red-500 transition-colors">
-                        SELECCIONAR PDF
-                    </span>
-                    <input type="file" id="pdfUpload" accept=".pdf" class="hidden" onchange="handlePdfUpload(this)">
+
+                    <!-- Caja IMAGEN -->
+                    <div class="w-full border-2 border-dashed border-slate-300 rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-8 flex flex-col items-center justify-center cursor-pointer group"
+                        onclick="document.getElementById('imgUpload').click()">
+                        <div
+                            class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-image text-3xl"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-700 mb-1 text-center">Captura de Recibo</h3>
+                        <p class="text-slate-400 text-xs font-medium mb-4 text-center">Sube imagen de un pago suelto</p>
+                        <span
+                            class="bg-white px-4 py-2 flex-shrink-0 rounded-xl shadow-sm text-xs font-black text-slate-600 border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-500 transition-colors uppercase">
+                            Seleccionar Imagen
+                        </span>
+                        <input type="file" id="imgUpload" accept="image/*" class="hidden"
+                            onchange="handleImgUpload(this)">
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-4 my-6">
@@ -557,6 +581,7 @@
         let currentFilter = 'all';
         let currentPdfFile = null;
         let currentCsvFile = null;
+        let currentImgFile = null;
         let unsubscribe = null; // Para detener la escucha al cerrar sesión
         let unsubscribeAbonos = null;
 
@@ -775,6 +800,7 @@
             if (currentFilter === 'pending') displayList = pending;
             if (currentFilter === 'done') displayList = done;
             if (currentFilter === 'toPay') displayList = cache.filter(m => m.pendingPayment && !m.paid);
+            if (currentFilter === 'paid') displayList = cache.filter(m => m.paid);
 
             if (!displayList.length) {
                 list.innerHTML = `<div class="py-20 text-center opacity-30"><i class="fa-solid fa-box-open text-4xl mb-3"></i><p class="font-black uppercase text-[10px]">Sin datos registrados</p></div>`;
@@ -791,44 +817,12 @@
                     btnShowAll.classList.add('hidden');
                 }
 
+                let listHTML = `<div class="p-2">`;
                 listToRender.forEach(m => {
-                    const displayDate = m.date.split('T')[0].split('-').reverse().join('/');
-                    const div = document.createElement('div');
-                    div.className = `group flex flex-col md:flex-row md:items-center justify-between p-3 lg:p-4 hover:bg-slate-100 border-b border-slate-100 last:border-0 transition-colors gap-3 md:gap-0 ${m.reported ? 'bg-white' : 'bg-slate-50'}`;
-                    div.innerHTML = `
-                        <div class="flex justify-between md:justify-start items-center md:w-1/4 px-2 md:pl-0">
-                            <span class="md:hidden text-[10px] font-bold text-slate-400 uppercase">Fecha</span>
-                            <span class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-md shadow-sm border border-slate-200">${displayDate}</span>
-                        </div>
-                        <div class="flex items-center gap-3 md:w-1/3">
-                            <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center shadow-sm ${m.reported ? 'bg-emerald-100/50 text-emerald-600' : 'bg-blue-50 text-blue-600'}">
-                                <i class="fa-solid ${m.reported ? 'fa-check' : 'fa-clock'}"></i>
-                            </div>
-                            <div class="min-w-0">
-                                <p class="text-sm font-bold text-slate-800 truncate flex items-center gap-2">
-                                    <span class="truncate">${m.name || 'Usuario PayPal'}</span>
-                                    ${(m.pendingPayment && !m.paid) ? '<span class="bg-purple-100 text-purple-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase shrink-0">Pago Pend.</span>' : ''}
-                                </p>
-                                <p class="text-[10px] text-slate-400 font-mono tracking-wider">${m.id}</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between md:justify-end gap-2 md:gap-6 md:w-5/12 text-right bg-white md:bg-transparent p-3 md:p-0 rounded-xl border md:border-0 border-slate-100 shadow-sm md:shadow-none">
-                            <div class="text-left md:text-right hidden sm:block">
-                                <span class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bruto</span>
-                                <span class="text-xs font-bold text-slate-600">$${m.amount.toFixed(2)}</span>
-                            </div>
-                            <div class="text-left md:text-right px-2 md:px-0 border-x md:border-0 border-slate-100 hidden sm:block">
-                                <span class="block text-[9px] font-bold text-red-300 uppercase tracking-widest">Fee</span>
-                                <span class="text-xs font-bold text-red-400">-$${(m.fee || 0).toFixed(2)}</span>
-                            </div>
-                            <div class="text-right flex-grow md:flex-grow-0 flex items-center justify-between md:block">
-                                <span class="block text-[9px] font-bold text-emerald-600 uppercase tracking-widest md:hidden">Neto</span>
-                                <span class="text-sm lg:text-base font-black text-emerald-500">$${(m.net || m.amount).toFixed(2)}</span>
-                            </div>
-                        </div>
-                    `;
-                    list.appendChild(div);
+                    listHTML += renderAuditCard(m, "", false);
                 });
+                listHTML += `</div>`;
+                list.innerHTML = listHTML;
             }
         }
 
@@ -903,12 +897,20 @@
         window.clearPdf = () => {
             currentPdfFile = null;
             currentCsvFile = null;
+            currentImgFile = null;
 
             const pdfInput = document.getElementById('pdfUpload');
             if (pdfInput) {
                 pdfInput.value = '';
                 const btnText = pdfInput.previousElementSibling;
-                if (btnText) btnText.innerText = "SELECCIONAR PDF";
+                if (btnText) btnText.innerText = "Seleccionar PDF";
+            }
+
+            const imgInput = document.getElementById('imgUpload');
+            if (imgInput) {
+                imgInput.value = '';
+                const btnText = imgInput.previousElementSibling;
+                if (btnText) btnText.innerText = "Seleccionar Imagen";
             }
 
             const csvInput = document.getElementById('csvInput');
@@ -972,9 +974,29 @@
             if (!file) return;
             currentPdfFile = file;
             currentCsvFile = null;
+            currentImgFile = null;
             document.getElementById('fileName').innerText = "Ningún archivo seleccionado";
             input.previousElementSibling.innerText = file.name;
+
+            const imgInput = document.getElementById('imgUpload');
+            if (imgInput) imgInput.previousElementSibling.innerText = "Seleccionar Imagen";
+
             showToast("PDF Seleccionado", "info");
+        };
+
+        window.handleImgUpload = (input) => {
+            const file = input.files[0];
+            if (!file) return;
+            currentImgFile = file;
+            currentPdfFile = null;
+            currentCsvFile = null;
+            document.getElementById('fileName').innerText = "Ningún archivo seleccionado";
+            input.previousElementSibling.innerText = file.name;
+
+            const pdfInput = document.getElementById('pdfUpload');
+            if (pdfInput) pdfInput.previousElementSibling.innerText = "Seleccionar PDF";
+
+            showToast("Imagen Seleccionada", "info");
         };
 
         window.handleFileSelect = (event) => {
@@ -982,12 +1004,18 @@
             if (!file) return;
             currentCsvFile = file;
             currentPdfFile = null;
+            currentImgFile = null;
             document.getElementById('fileName').innerText = file.name;
-            // Reset PDF UI if needed
+            // Reset PDF and Img UI if needed
             const pdfInput = document.getElementById('pdfUpload');
             if (pdfInput) {
                 pdfInput.value = '';
-                pdfInput.previousElementSibling.innerText = "SELECCIONAR PDF";
+                pdfInput.previousElementSibling.innerText = "Seleccionar PDF";
+            }
+            const imgInput = document.getElementById('imgUpload');
+            if (imgInput) {
+                imgInput.value = '';
+                imgInput.previousElementSibling.innerText = "Seleccionar Imagen";
             }
             showToast("CSV Seleccionado", "info");
         };
@@ -1076,8 +1104,56 @@
             });
         }
 
+        function parseReceiptText(text) {
+            let amount = 0;
+            const amtMatch = text.match(/\+?\$\s?(\d+[.,]\d{2})/);
+            if (amtMatch) {
+                amount = parseFloat(amtMatch[1].replace(',', '.'));
+            }
+
+            let id = "";
+            const idMatch = text.match(/(?:Id\.\s*de\s*transacci[oó]n|ID|transacción)\s*([A-Z0-9]{15,})/i);
+            if (idMatch) {
+                id = idMatch[1];
+            } else {
+                const fallbackId = text.match(/\b([A-Z0-9]{15,20})\b/);
+                if (fallbackId) id = fallbackId[1];
+            }
+
+            let name = "Usuario (Por revisar)";
+            const nameMatch = text.match(/Enviado\s+por\s+([A-Za-z\s]+)/i) || text.match(/Pagado\s+a\s+([A-Za-z\s]+)/i);
+            if (nameMatch && nameMatch[1].trim()) {
+                name = nameMatch[1].trim().split('\n')[0];
+            } else {
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                if (lines.length > 0 && !lines[0].toLowerCase().includes('paypal')) {
+                    name = lines[0];
+                }
+            }
+
+            let date = new Date().toISOString();
+            const dateMatch = text.match(/(\d{1,2})\s+de\s+([a-zA-Z]+)(?:\s+de\s+)?(\d{4})/i);
+            if (dateMatch) {
+                const day = dateMatch[1].padStart(2, '0');
+                const months = { enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06', julio: '07', agosto: '08', septiembre: '09', octubre: '10', noviembre: '11', diciembre: '12' };
+                const mStr = dateMatch[2].toLowerCase();
+                let month = '01';
+                for (let key in months) {
+                    if (mStr.includes(key)) month = months[key];
+                }
+                const year = dateMatch[3];
+                date = new Date(`${year}-${month}-${day}`).toISOString();
+            }
+
+            if (!id || amount <= 0) {
+                return null;
+            }
+
+            return { id, amount, fee: 0, net: amount, name, date, reported: false };
+        }
+
         window.handleImport = async () => {
-            if (!currentPdfFile && !currentCsvFile) { showToast("Por favor selecciona un archivo", "error"); return; }
+            if (!currentPdfFile && !currentCsvFile && !currentImgFile) { showToast("Por favor selecciona un archivo", "error"); return; }
 
             const btn = document.getElementById('btnProcess');
             const progBox = document.getElementById('progressContainer');
@@ -1119,6 +1195,26 @@
                     document.getElementById('progressBar').style.width = '20%';
                     document.getElementById('progressText').innerText = `Leyendo CSV...`;
                     transactions = await parseCsvAndGetTransactions(currentCsvFile);
+                } else if (currentImgFile) {
+                    document.getElementById('progressBar').style.width = '10%';
+                    document.getElementById('progressText').innerText = `Iniciando OCR...`;
+
+                    const worker = await Tesseract.createWorker('spa');
+                    document.getElementById('progressBar').style.width = '30%';
+                    document.getElementById('progressText').innerText = `Leyendo Imagen...`;
+
+                    const ret = await worker.recognize(currentImgFile);
+                    await worker.terminate();
+
+                    document.getElementById('progressBar').style.width = '60%';
+                    document.getElementById('progressText').innerText = `Procesando...`;
+
+                    const text = ret.data.text;
+                    console.log("OCR Result:", text);
+
+                    const tx = parseReceiptText(text);
+                    if (tx) transactions.push(tx);
+                    else throw new Error("No se detectó un recibo válido en la imagen");
                 }
 
                 if (transactions.length === 0) throw new Error("No se encontraron transacciones válidas");
@@ -1249,37 +1345,49 @@
             }
 
             const textColor = isDateContext ? "text-white" : "text-slate-800";
-            const subColor = isDateContext ? "text-indigo-200" : "text-slate-400";
+            const subColor = isDateContext ? "text-white/50" : "text-slate-400";
+            const borderColor = isDateContext ? "border-white/10" : "border-slate-200";
 
             return `
-            <div class="flex flex-col gap-2 p-3 mb-2 rounded-xl border transition-all ${cardBg}">
-                <div class="flex justify-between items-center gap-2">
-                    <div class="flex items-center gap-2 min-w-0 flex-grow">
-                        <p class="text-sm font-black ${textColor} truncate">${m.name || 'Usuario PayPal'}</p>
-                        ${nameMatch ? '<span class="bg-emerald-600 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase">Match</span>' : ''}
-                        ${isRep ? '<span class="bg-orange-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase"><i class="fa-solid fa-check"></i> Auditado</span>' : ''}
-                        ${isPending ? '<span class="bg-purple-500 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase"><i class="fa-solid fa-clock"></i> Por Pagar</span>' : ''}
-                        ${isPaid ? '<span class="bg-green-600 text-white text-[8px] font-black px-2 py-0.5 rounded-md uppercase"><i class="fa-solid fa-check-double"></i> Pagado</span>' : ''}
-                    </div>
-                    <span class="text-[9px] ${subColor} font-mono shrink-0">${displayDate}</span>
+            <div class="flex items-center gap-4 p-2.5 mb-2 rounded-xl border transition-all ${cardBg} overflow-x-auto no-scrollbar">
+                
+                <!-- FECHA -->
+                <div class="shrink-0 flex items-center justify-center ${isDateContext ? 'bg-white/10' : 'bg-white'} px-2.5 py-1 rounded border ${borderColor}">
+                    <span class="text-[14px] font-black ${textColor} tracking-tight">${displayDate}</span>
                 </div>
-                <div class="flex items-center justify-between gap-2">
-                    <div class="flex items-center gap-3 text-xs">
-                        <span class="${textColor} font-black">$${m.amount.toFixed(2)}</span>
-                        <span class="${isDateContext ? 'text-white/60' : 'text-red-400'} font-bold">Fee: ${(m.fee || 0).toFixed(2)}</span>
-                        <span class="${isDateContext ? 'text-white/80' : 'text-emerald-500'} font-bold">Neto: $${(m.net || m.amount).toFixed(2)}</span>
-                    </div>
-                    <div class="flex gap-2">
-                         <button onclick="markReported('${m.id}')" ${(isRep || isPaid) ? 'disabled' : ''} class="shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${(isRep || isPaid) ? 'bg-black/10 text-slate-400 cursor-not-allowed' : (isDateContext ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-[#0070ba] text-white hover:bg-[#005ea6] shadow-md')}">
-                            <i class="fa-solid ${isRep ? 'fa-check' : 'fa-check-double'} mr-1"></i>${isRep ? 'Listo' : 'Conciliar'}
-                        </button>
-                        ${(isRep && !isPending && !isPaid) ? `
-                        <button onclick="addToPayment('${m.id}')" class="shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all bg-purple-600 text-white hover:bg-purple-500 shadow-md">
-                            <i class="fa-solid fa-plus mr-1"></i>Pago
-                        </button>` : ''}
-                    </div>
+
+                <!-- NOMBRE Y ESTADO -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <p class="text-[13px] font-black ${textColor} max-w-[150px] md:max-w-[200px] truncate" title="${m.name || 'Usuario PayPal'}">${m.name || 'Usuario PayPal'}</p>
+                    ${nameMatch ? '<span class="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Match</span>' : ''}
+                    ${isRep ? '<span class="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase"><i class="fa-solid fa-check"></i> Auditado</span>' : ''}
+                    ${isPending ? '<span class="bg-purple-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase"><i class="fa-solid fa-clock"></i> Por Pagar</span>' : ''}
+                    ${isPaid ? '<span class="bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase"><i class="fa-solid fa-check-double"></i> Pagado</span>' : ''}
                 </div>
-                <p class="text-[9px] ${subColor} font-mono truncate">ID: ${m.id}</p>
+
+                <!-- MONTOS -->
+                <div class="flex items-center gap-3 text-xs shrink-0 px-3 border-l ${borderColor}">
+                    <span class="${textColor} font-black">$${m.amount.toFixed(2)}</span>
+                    <span class="${isDateContext ? 'text-white/60' : 'text-red-400'} font-bold">Fee: ${(m.fee || 0).toFixed(2)}</span>
+                    <span class="${isDateContext ? 'text-white/80' : 'text-emerald-500'} font-black text-[13px]">Neto: $${(m.net || m.amount).toFixed(2)}</span>
+                </div>
+
+                <!-- ID -->
+                <div class="shrink-0 border-l ${borderColor} pl-3 hidden md:block">
+                    <p class="text-[10px] ${subColor} font-mono uppercase">ID: ${m.id}</p>
+                </div>
+
+                <!-- BOTONES -->
+                <div class="flex items-center gap-2 shrink-0 ml-auto pl-2">
+                    ${(isRep && !isPending && !isPaid) ? `
+                    <button onclick="addToPayment('${m.id}')" class="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all bg-purple-600 text-white hover:bg-purple-500 shadow-sm">
+                        <i class="fa-solid fa-plus mr-1"></i>Pago
+                    </button>` : ''}
+                    <button onclick="markReported('${m.id}')" ${(isRep || isPaid) ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${(isRep || isPaid) ? 'bg-black/10 text-slate-400 cursor-not-allowed shadow-none' : (isDateContext ? 'bg-white text-slate-900 hover:bg-slate-100 shadow-sm' : 'bg-[#0070ba] text-white hover:bg-[#005ea6] shadow-sm')}">
+                        <i class="fa-solid ${isRep ? 'fa-check' : 'fa-check-double'} mr-1"></i>${isRep ? 'Listo' : 'Conciliar'}
+                    </button>
+                </div>
+
             </div>`;
         }
 

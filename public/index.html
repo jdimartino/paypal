@@ -83,6 +83,44 @@
             scrollbar-width: thin;
             scrollbar-color: #cbd5e1 transparent;
         }
+
+        /* ===== MODAL VISTA COMPLETA ===== */
+        #printModal {
+            display: none;
+        }
+
+        #printModal.open {
+            display: flex;
+        }
+
+        /* ===== IMPRESIÓN / CAPTURA ===== */
+        @media print {
+            body>*:not(#printModal) {
+                display: none !important;
+            }
+
+            #printModal {
+                display: block !important;
+                position: static !important;
+                background: white !important;
+                overflow: visible !important;
+            }
+
+            #printModalActions {
+                display: none !important;
+            }
+
+            #printModalContent {
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            .print-card {
+                break-inside: avoid;
+                border: 1px solid #e2e8f0 !important;
+                box-shadow: none !important;
+            }
+        }
     </style>
 </head>
 
@@ -304,6 +342,11 @@
                         <button id="btnBulk" onclick="openBulkConfirm()"
                             class="hidden flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-md font-black text-[9px] uppercase shadow-sm transition-all">
                             <i class="fa-solid fa-check-double"></i> <span class="hidden sm:inline">Todo</span>
+                        </button>
+                        <button onclick="openPrintView()"
+                            class="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-600 px-2 py-1 rounded-md font-black text-[9px] uppercase transition-all"
+                            title="Vista completa para captura">
+                            <i class="fa-solid fa-print"></i> <span class="hidden sm:inline">Vista</span>
                         </button>
                         <button onclick="resetAllMovements()"
                             class="text-red-400 hover:text-red-600 p-1.5 rounded-md hover:bg-red-50 transition-all"
@@ -557,6 +600,37 @@
 
     </main>
 
+    <!-- ===== MODAL VISTA COMPLETA / IMPRESIÓN ===== -->
+    <div id="printModal"
+        class="fixed inset-0 z-[150] bg-slate-900/70 backdrop-blur-sm items-start justify-center p-3 overflow-y-auto">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto my-4">
+
+            <!-- Cabecera del modal -->
+            <div id="printModalActions"
+                class="sticky top-0 bg-white rounded-t-2xl border-b border-slate-100 px-4 py-3 flex items-center justify-between gap-2 z-10">
+                <div>
+                    <h2 class="text-sm font-black text-slate-800 tracking-tight">📋 Vista Completa del Historial</h2>
+                    <p id="printModalSubtitle" class="text-[10px] text-slate-400 font-bold uppercase tracking-wide"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.print()"
+                        class="flex items-center gap-1.5 bg-[#0070ba] hover:bg-[#005ea6] text-white px-3 py-1.5 rounded-lg font-black text-[10px] uppercase tracking-wide shadow transition-all">
+                        <i class="fa-solid fa-print"></i> Imprimir / PDF
+                    </button>
+                    <button onclick="closePrintView()"
+                        class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-all">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista de movimientos -->
+            <div id="printModalContent" class="p-3 space-y-2 max-h-[80vh] overflow-y-auto">
+                <!-- Dinámico -->
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase + Business Logic -->
     <!-- Firebase + Business Logic -->
     <script type="module">
@@ -782,6 +856,40 @@
         window.showAllHistory = () => {
             historyExpanded = true;
             renderDashboard();
+        };
+
+        // --- VISTA COMPLETA / IMPRESIÓN ---
+        window.openPrintView = () => {
+            // Determinar lista según filtro activo
+            let displayList = cache;
+            if (currentFilter === 'pending') displayList = cache.filter(m => !m.reported);
+            if (currentFilter === 'done') displayList = cache.filter(m => m.reported);
+            if (currentFilter === 'toPay') displayList = cache.filter(m => m.pendingPayment && !m.paid);
+            if (currentFilter === 'paid') displayList = cache.filter(m => m.paid);
+
+            const modal = document.getElementById('printModal');
+            const content = document.getElementById('printModalContent');
+            const subtitle = document.getElementById('printModalSubtitle');
+
+            const filterLabels = { all: 'Todos', pending: 'Pendientes', done: 'Auditados', toPay: 'Por Pagar', paid: 'Pagados' };
+            const now = new Date().toLocaleString('es-VE');
+            subtitle.innerText = `${filterLabels[currentFilter] || 'Todos'} · ${displayList.length} movimientos · ${now}`;
+
+            if (!displayList.length) {
+                content.innerHTML = `<div class="py-16 text-center text-slate-400"><i class="fa-solid fa-box-open text-4xl mb-3"></i><p class="font-black uppercase text-xs">Sin movimientos</p></div>`;
+            } else {
+                let html = '';
+                displayList.forEach(m => { html += renderAuditCard(m, '', false); });
+                content.innerHTML = html;
+            }
+
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closePrintView = () => {
+            document.getElementById('printModal').classList.remove('open');
+            document.body.style.overflow = '';
         };
 
         function renderDashboard() {
@@ -1359,44 +1467,46 @@
             const subColor = isDateContext ? "text-white/50" : "text-slate-400";
             const borderColor = isDateContext ? "border-white/10" : "border-slate-200";
 
+            // ---- LAYOUT EN DOS FILAS (móvil-first) ----
             return `
-            <div class="flex items-center gap-4 p-2.5 mb-2 rounded-xl border transition-all ${cardBg} overflow-x-auto no-scrollbar">
-                
-                <!-- FECHA -->
-                <div class="shrink-0 flex items-center justify-center ${isDateContext ? 'bg-white/10' : 'bg-white'} px-2.5 py-1 rounded border ${borderColor}">
-                    <span class="text-[14px] font-black ${textColor} tracking-tight">${displayDate}</span>
+            <div class="print-card p-2.5 mb-2 rounded-xl border transition-all ${cardBg}">
+
+                <!-- FILA 1: Fecha + Nombre + Badges -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <!-- Fecha -->
+                    <div class="shrink-0 flex items-center justify-center ${isDateContext ? 'bg-white/10' : 'bg-white'} px-2 py-0.5 rounded border ${borderColor}">
+                        <span class="text-[12px] font-black ${textColor} tracking-tight whitespace-nowrap">${displayDate}</span>
+                    </div>
+                    <!-- Nombre -->
+                    <p class="text-[13px] font-black ${textColor} flex-1 min-w-0 truncate" title="${m.name || 'Usuario PayPal'}">${m.name || 'Usuario PayPal'}</p>
+                    <!-- Badges -->
+                    <div class="flex items-center gap-1 flex-wrap">
+                        ${nameMatch ? '<span class="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase whitespace-nowrap">Match</span>' : ''}
+                        ${isRep ? '<span class="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase whitespace-nowrap"><i class="fa-solid fa-check"></i> Auditado</span>' : ''}
+                        ${isPending ? '<span class="bg-purple-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase whitespace-nowrap"><i class="fa-solid fa-clock"></i> Por Pagar</span>' : ''}
+                        ${isPaid ? '<span class="bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase whitespace-nowrap"><i class="fa-solid fa-check-double"></i> Pagado</span>' : ''}
+                    </div>
                 </div>
 
-                <!-- NOMBRE Y ESTADO -->
-                <div class="flex items-center gap-2 shrink-0">
-                    <p class="text-[13px] font-black ${textColor} max-w-[150px] md:max-w-[200px] truncate" title="${m.name || 'Usuario PayPal'}">${m.name || 'Usuario PayPal'}</p>
-                    ${nameMatch ? '<span class="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Match</span>' : ''}
-                    ${isRep ? '<span class="bg-orange-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase"><i class="fa-solid fa-check"></i> Auditado</span>' : ''}
-                    ${isPending ? '<span class="bg-purple-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase"><i class="fa-solid fa-clock"></i> Por Pagar</span>' : ''}
-                    ${isPaid ? '<span class="bg-green-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase"><i class="fa-solid fa-check-double"></i> Pagado</span>' : ''}
-                </div>
-
-                <!-- MONTOS -->
-                <div class="flex items-center gap-3 text-xs shrink-0 px-3 border-l ${borderColor}">
-                    <span class="${textColor} font-black">$${m.amount.toFixed(2)}</span>
-                    <span class="${isDateContext ? 'text-white/60' : 'text-red-400'} font-bold">Fee: ${(m.fee || 0).toFixed(2)}</span>
-                    <span class="${isDateContext ? 'text-white/80' : 'text-emerald-500'} font-black text-[13px]">Neto: $${(m.net || m.amount).toFixed(2)}</span>
-                </div>
-
-                <!-- ID -->
-                <div class="shrink-0 border-l ${borderColor} pl-3 hidden md:block">
-                    <p class="text-[10px] ${subColor} font-mono uppercase">ID: ${m.id}</p>
-                </div>
-
-                <!-- BOTONES -->
-                <div class="flex items-center gap-2 shrink-0 ml-auto pl-2">
-                    ${(isRep && !isPending && !isPaid) ? `
-                    <button onclick="addToPayment('${m.id}')" class="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all bg-purple-600 text-white hover:bg-purple-500 shadow-sm">
-                        <i class="fa-solid fa-plus mr-1"></i>Pago
-                    </button>` : ''}
-                    <button onclick="markReported('${m.id}')" ${(isRep || isPaid) ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${(isRep || isPaid) ? 'bg-black/10 text-slate-400 cursor-not-allowed shadow-none' : (isDateContext ? 'bg-white text-slate-900 hover:bg-slate-100 shadow-sm' : 'bg-[#0070ba] text-white hover:bg-[#005ea6] shadow-sm')}">
-                        <i class="fa-solid ${isRep ? 'fa-check' : 'fa-check-double'} mr-1"></i>${isRep ? 'Listo' : 'Conciliar'}
-                    </button>
+                <!-- FILA 2: Montos + Botones -->
+                <div class="flex items-center justify-between gap-2 mt-1.5 pt-1.5 border-t ${borderColor}">
+                    <!-- Montos -->
+                    <div class="flex items-center gap-2 text-xs flex-wrap">
+                        <span class="${textColor} font-black">$${m.amount.toFixed(2)}</span>
+                        <span class="${isDateContext ? 'text-white/60' : 'text-red-400'} font-bold">Fee: ${(m.fee || 0).toFixed(2)}</span>
+                        <span class="${isDateContext ? 'text-white/80' : 'text-emerald-600'} font-black">Neto: $${(m.net || m.amount).toFixed(2)}</span>
+                        <span class="${subColor} font-mono text-[9px] hidden md:inline">ID: ${m.id}</span>
+                    </div>
+                    <!-- Botones -->
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${(isRep && !isPending && !isPaid) ? `
+                        <button onclick="addToPayment('${m.id}')" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition-all bg-purple-600 text-white hover:bg-purple-500 shadow-sm whitespace-nowrap">
+                            <i class="fa-solid fa-plus mr-0.5"></i>Pago
+                        </button>` : ''}
+                        <button onclick="markReported('${m.id}')" ${(isRep || isPaid) ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition-all whitespace-nowrap ${(isRep || isPaid) ? 'bg-black/10 text-slate-400 cursor-not-allowed shadow-none' : (isDateContext ? 'bg-white text-slate-900 hover:bg-slate-100 shadow-sm' : 'bg-[#0070ba] text-white hover:bg-[#005ea6] shadow-sm')}">
+                            <i class="fa-solid ${isRep ? 'fa-check' : 'fa-check-double'} mr-0.5"></i>${isRep ? 'Listo' : 'Conciliar'}
+                        </button>
+                    </div>
                 </div>
 
             </div>`;

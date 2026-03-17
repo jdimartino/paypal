@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Conciliador PayPal Pro (Cloud Sync)</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -55,7 +55,25 @@
 
         .animate-card {
             animation: slideIn 0.3s ease-out forwards;
+            will-change: transform, opacity;
         }
+
+        /* Safari iOS: momentum scrolling */
+        .custom-scroll, [class*="overflow-y-auto"] {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Safari: webkit prefix para backdrop-blur */
+        .backdrop-blur-sm { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+        .backdrop-blur-md { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+
+        /* Safari/iOS: eliminar 300ms tap delay en todos los controles */
+        button, [onclick], input, select, textarea {
+            touch-action: manipulation;
+        }
+
+        /* Safari iOS: fix viewport height dinámico via CSS variable */
+        :root { --vh: 1vh; }
 
         #customModal {
             display: none;
@@ -131,7 +149,7 @@
 
     <!-- Modal de Confirmación Custom (Evita bloqueos de navegador) -->
     <div id="customModal"
-        class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
+        class="fixed top-0 right-0 bottom-0 left-0 z-[100] bg-slate-900/60 backdrop-blur-sm items-center justify-center p-4">
         <div class="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 animate-card">
             <div class="text-center">
                 <div
@@ -153,7 +171,7 @@
 
     <!-- Modal para Agregar Abono -->
     <div id="abonoModal"
-        class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        class="fixed top-0 right-0 bottom-0 left-0 z-[100] bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
         <div class="bg-white rounded-[2rem] shadow-2xl max-w-sm w-full p-8 animate-card">
             <div class="text-center">
                 <div
@@ -189,7 +207,7 @@
     </div>
 
     <!-- Login Overlay -->
-    <div id="loginOverlay" class="fixed inset-0 z-[200] bg-[#003087] flex items-center justify-center p-4">
+    <div id="loginOverlay" class="fixed top-0 right-0 bottom-0 left-0 z-[200] bg-[#003087] flex items-center justify-center p-4">
         <div class="bg-white rounded-[3rem] shadow-2xl max-w-md w-full p-10 text-center animate-card">
             <div
                 class="bg-blue-50 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8 transform rotate-12 shadow-lg">
@@ -268,54 +286,54 @@
 
         <!-- PESTAÑA: RESUMEN (Dashboard) -->
         <div id="tab-dashboard"
-            class="tab-content hidden h-full flex flex-col gap-3 lg:gap-4 overflow-y-auto pr-2 custom-scroll">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:gap-4">
+            class="tab-content hidden h-full flex flex-col gap-2 lg:gap-4 overflow-y-auto pr-2 custom-scroll">
+            <div class="grid grid-cols-3 gap-2 lg:gap-4">
                 <!-- Tarjetas de Resumen compactas -->
                 <div
-                    class="bg-white p-3 lg:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
+                    class="bg-white p-2 lg:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-1 lg:gap-3">
                         <div
-                            class="w-10 h-10 rounded-xl bg-blue-100 flex flex-shrink-0 items-center justify-center text-blue-600 font-black">
-                            <i class="fa-brands fa-paypal"></i>
+                            class="w-7 h-7 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-blue-100 flex flex-shrink-0 items-center justify-center text-blue-600 font-black">
+                            <i class="fa-brands fa-paypal text-sm lg:text-base"></i>
                         </div>
                         <h3
-                            class="text-[9px] lg:text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">
+                            class="text-[7px] lg:text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">
                             Total</h3>
                     </div>
-                    <p class="text-xl lg:text-2xl font-black text-slate-800" id="statTotal">0</p>
+                    <p class="text-base lg:text-2xl font-black text-slate-800" id="statTotal">0</p>
                 </div>
 
                 <div
-                    class="bg-white p-3 lg:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
+                    class="bg-white p-2 lg:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-1 lg:gap-3">
                         <div
-                            class="w-10 h-10 rounded-xl bg-purple-100 flex flex-shrink-0 items-center justify-center text-purple-600 font-black">
-                            <i class="fa-solid fa-clock"></i>
+                            class="w-7 h-7 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-purple-100 flex flex-shrink-0 items-center justify-center text-purple-600 font-black">
+                            <i class="fa-solid fa-clock text-sm lg:text-base"></i>
                         </div>
                         <h3
-                            class="text-[9px] lg:text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">
+                            class="text-[7px] lg:text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">
                             Pendientes</h3>
                     </div>
-                    <p class="text-xl lg:text-2xl font-black text-purple-600" id="statPending">0</p>
+                    <p class="text-base lg:text-2xl font-black text-purple-600" id="statPending">0</p>
                 </div>
 
                 <div
-                    class="bg-white p-3 lg:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
+                    class="bg-white p-2 lg:p-4 rounded-xl lg:rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-1 lg:gap-3">
                         <div
-                            class="w-10 h-10 rounded-xl bg-emerald-100 flex flex-shrink-0 items-center justify-center text-emerald-600 font-black">
-                            <i class="fa-solid fa-check-double"></i>
+                            class="w-7 h-7 lg:w-10 lg:h-10 rounded-lg lg:rounded-xl bg-emerald-100 flex flex-shrink-0 items-center justify-center text-emerald-600 font-black">
+                            <i class="fa-solid fa-check-double text-sm lg:text-base"></i>
                         </div>
                         <h3
-                            class="text-[9px] lg:text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">
+                            class="text-[7px] lg:text-xs font-black text-slate-400 uppercase tracking-widest hidden sm:block">
                             Auditados</h3>
                     </div>
-                    <p class="text-xl lg:text-2xl font-black text-emerald-500" id="statDone">0</p>
+                    <p class="text-base lg:text-2xl font-black text-emerald-500" id="statDone">0</p>
                 </div>
             </div>
 
             <p id="lastUpdateDashboard"
-                class="text-[10px] text-slate-400 text-center font-bold tracking-wider mt-1 mb-2 hidden"></p>
+                class="text-[10px] text-slate-400 text-center font-bold tracking-wider mt-0 mb-1 lg:mt-1 lg:mb-2 hidden"></p>
 
             <!-- Historial -->
             <div class="bg-white rounded-xl lg:rounded-[2.5rem] shadow-sm border border-slate-200 flex-grow flex flex-col min-h-0 overflow-hidden"
@@ -377,49 +395,49 @@
         </div>
 
         <!-- PESTAÑA: IMPORTAR -->
-        <div id="tab-import" class="tab-content hidden h-full flex flex-col items-center justify-center p-4">
+        <div id="tab-import" class="tab-content hidden h-full flex flex-col items-center justify-start md:justify-center p-3 md:p-4 overflow-y-auto">
             <div class="max-w-xl w-full">
                 <!-- Botones de Backup (Import/Export) -->
-                <div class="flex gap-4 mb-8">
+                <div class="flex gap-2 md:gap-4 mb-4 md:mb-8">
                     <button onclick="exportData()"
-                        class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-3 rounded-2xl border border-emerald-200 transition-all text-xs flex items-center justify-center gap-2">
+                        class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold py-2.5 md:py-3 rounded-2xl border border-emerald-200 transition-all text-xs flex items-center justify-center gap-2">
                         <i class="fa-solid fa-download"></i> EXPORTAR RESPALDO
                     </button>
                     <button onclick="document.getElementById('jsonInput').click()"
-                        class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-3 rounded-2xl border border-purple-200 transition-all text-xs flex items-center justify-center gap-2">
+                        class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 md:py-3 rounded-2xl border border-purple-200 transition-all text-xs flex items-center justify-center gap-2">
                         <i class="fa-solid fa-upload"></i> IMPORTAR RESPALDO
                     </button>
                     <input type="file" id="jsonInput" accept=".json" class="hidden" onchange="importData(this)">
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-3 md:gap-4">
                     <!-- Caja PDF -->
-                    <div class="w-full border-2 border-dashed border-slate-300 rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-8 flex flex-col items-center justify-center cursor-pointer group"
-                        onclick="document.getElementById('pdfUpload').click()">
+                    <div class="w-full border-2 border-dashed border-slate-300 rounded-2xl md:rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-4 md:p-8 flex flex-col items-center justify-center cursor-pointer group"
+                        onclick="document.getElementById('pdfUpload').click()" role="button" tabindex="0">
                         <div
-                            class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-file-pdf text-3xl"></i>
+                            class="w-12 h-12 md:w-16 md:h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-2 md:mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-file-pdf text-2xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-lg font-black text-slate-700 mb-1 text-center">Estado de Cuenta</h3>
-                        <p class="text-slate-400 text-xs font-medium mb-4 text-center">PDF descargado de PayPal</p>
+                        <h3 class="text-sm md:text-lg font-black text-slate-700 mb-1 text-center">Estado de Cuenta</h3>
+                        <p class="text-slate-400 text-[10px] md:text-xs font-medium mb-2 md:mb-4 text-center">PDF descargado de PayPal</p>
                         <span
-                            class="bg-white px-4 py-2 flex-shrink-0 rounded-xl shadow-sm text-xs font-black text-slate-600 border border-slate-200 group-hover:border-red-200 group-hover:text-red-500 transition-colors uppercase">
+                            class="bg-white px-3 md:px-4 py-1.5 md:py-2 flex-shrink-0 rounded-xl shadow-sm text-[10px] md:text-xs font-black text-slate-600 border border-slate-200 group-hover:border-red-200 group-hover:text-red-500 transition-colors uppercase">
                             Seleccionar PDF
                         </span>
                         <input type="file" id="pdfUpload" accept=".pdf" class="hidden" onchange="handlePdfUpload(this)">
                     </div>
 
                     <!-- Caja IMAGEN -->
-                    <div class="w-full border-2 border-dashed border-slate-300 rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-8 flex flex-col items-center justify-center cursor-pointer group"
-                        onclick="document.getElementById('imgUpload').click()">
+                    <div class="w-full border-2 border-dashed border-slate-300 rounded-2xl md:rounded-[2rem] bg-slate-50 hover:bg-slate-100 transition-all p-4 md:p-8 flex flex-col items-center justify-center cursor-pointer group"
+                        onclick="document.getElementById('imgUpload').click()" role="button" tabindex="0">
                         <div
-                            class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-image text-3xl"></i>
+                            class="w-12 h-12 md:w-16 md:h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-2 md:mb-4 group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-image text-2xl md:text-3xl"></i>
                         </div>
-                        <h3 class="text-lg font-black text-slate-700 mb-1 text-center">Captura de Recibo</h3>
-                        <p class="text-slate-400 text-xs font-medium mb-4 text-center">Sube imagen de un pago suelto</p>
+                        <h3 class="text-sm md:text-lg font-black text-slate-700 mb-1 text-center">Captura de Recibo</h3>
+                        <p class="text-slate-400 text-[10px] md:text-xs font-medium mb-2 md:mb-4 text-center">Sube imagen de un pago suelto</p>
                         <span
-                            class="bg-white px-4 py-2 flex-shrink-0 rounded-xl shadow-sm text-xs font-black text-slate-600 border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-500 transition-colors uppercase">
+                            class="bg-white px-3 md:px-4 py-1.5 md:py-2 flex-shrink-0 rounded-xl shadow-sm text-[10px] md:text-xs font-black text-slate-600 border border-slate-200 group-hover:border-blue-200 group-hover:text-blue-500 transition-colors uppercase">
                             Seleccionar Imagen
                         </span>
                         <input type="file" id="imgUpload" accept="image/*" class="hidden"
@@ -427,25 +445,25 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-4 my-6">
+                <div class="flex items-center gap-4 my-4 md:my-6">
                     <div class="h-px bg-slate-200 flex-grow"></div>
                     <span class="text-slate-400 text-xs font-black uppercase">O usa un CSV</span>
                     <div class="h-px bg-slate-200 flex-grow"></div>
                 </div>
 
-                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 mb-8">
-                    <div class="flex items-center gap-4 mb-4">
+                <div class="bg-white p-4 md:p-6 rounded-2xl md:rounded-[2rem] shadow-sm border border-slate-200 mb-4 md:mb-8">
+                    <div class="flex items-center gap-3 md:gap-4 mb-4">
                         <div
-                            class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+                            class="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg md:text-xl flex-shrink-0">
                             <i class="fa-solid fa-file-csv"></i>
                         </div>
-                        <div class="flex-grow">
+                        <div class="flex-grow min-w-0">
                             <h3 class="text-sm font-black text-slate-700">Archivo CSV</h3>
-                            <p id="fileName" class="text-xs text-slate-400 font-mono mt-1">Ningún archivo seleccionado
+                            <p id="fileName" class="text-xs text-slate-400 font-mono mt-1 truncate">Ningún archivo seleccionado
                             </p>
                         </div>
                         <button onclick="document.getElementById('csvInput').click()"
-                            class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-4 py-2 rounded-xl text-xs font-black transition-all">
+                            class="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 md:px-4 py-2 rounded-xl text-xs font-black transition-all flex-shrink-0">
                             EXAMINAR
                         </button>
                     </div>
@@ -465,7 +483,7 @@
                     </div>
 
                     <button id="btnProcess" onclick="handleImport()"
-                        class="mt-8 w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-black py-5 rounded-[2rem] shadow-xl transition-all flex items-center justify-center gap-4 transform active:scale-95 text-lg">
+                        class="mt-5 md:mt-8 w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-black py-4 md:py-5 rounded-2xl md:rounded-[2rem] shadow-xl transition-all flex items-center justify-center gap-3 md:gap-4 transform active:scale-95 text-base md:text-lg">
                         <i class="fa-solid fa-cloud-arrow-up"></i> INICIAR SINCRONIZACIÓN
                     </button>
                 </div>
@@ -476,7 +494,7 @@
         <div id="tab-conciliate" class="tab-content h-full flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-8">
             <!-- Buscador: compacto en móvil, expandido en desktop -->
             <div class="bg-white p-4 lg:p-8 rounded-2xl lg:rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col shrink-0 lg:h-full relative"
-                style="max-height: 35vh;">
+                style="max-height: calc(var(--vh, 1vh) * 35);">
                 <div class="flex items-center justify-between mb-2 lg:mb-6">
                     <div class="flex items-center gap-2 text-[#003087]">
                         <i class="fa-solid fa-magnifying-glass-plus text-lg lg:text-3xl"></i>
@@ -515,7 +533,7 @@
         </div>
 
         <!-- PESTAÑA: PAGOS -->
-        <div id="tab-payments" class="tab-content hidden h-full flex flex-col lg:grid-cols-2 gap-4 lg:gap-8">
+        <div id="tab-payments" class="tab-content hidden h-full flex flex-col lg:grid lg:grid-cols-2 gap-4 lg:gap-8">
             <!-- Lista de Pendientes -->
             <div class="flex flex-col gap-2 lg:gap-6 overflow-hidden flex-grow min-h-0 order-2 lg:order-1">
                 <div class="flex items-center justify-between px-2">
@@ -537,7 +555,7 @@
 
             <!-- Resumen Total -->
             <div class="bg-slate-900 text-white p-6 lg:p-10 rounded-2xl lg:rounded-[3rem] shadow-2xl flex flex-col justify-center order-1 lg:order-2 h-fit lg:h-auto overflow-y-auto custom-scroll"
-                style="max-height: 85vh;">
+                style="max-height: calc(var(--vh, 1vh) * 85);">
                 <h2 class="text-xl lg:text-3xl font-black mb-1 lg:mb-2 text-center tracking-tight">RESUMEN DE PAGO</h2>
                 <p id="lastUpdatePayments"
                     class="text-[10px] text-slate-400 text-center font-bold tracking-wider mb-4 lg:mb-6 hidden"></p>
@@ -602,7 +620,7 @@
 
     <!-- ===== MODAL VISTA COMPLETA / IMPRESIÓN ===== -->
     <div id="printModal"
-        class="fixed inset-0 z-[150] bg-slate-900/70 backdrop-blur-sm items-start justify-center p-3 overflow-y-auto">
+        class="fixed top-0 right-0 bottom-0 left-0 z-[150] bg-slate-900/70 backdrop-blur-sm items-start justify-center p-3 overflow-y-auto">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto my-4">
 
             <!-- Cabecera del modal -->
@@ -625,7 +643,7 @@
             </div>
 
             <!-- Lista de movimientos -->
-            <div id="printModalContent" class="p-3 space-y-2 max-h-[80vh] overflow-y-auto">
+            <div id="printModalContent" class="p-3 space-y-2 overflow-y-auto" style="max-height: calc(var(--vh, 1vh) * 80);">
                 <!-- Dinámico -->
             </div>
         </div>
@@ -633,6 +651,14 @@
 
     <!-- Firebase + Business Logic -->
     <!-- Firebase + Business Logic -->
+    <script>
+        // iOS Safari: fix vh units para adaptarse a cambios de barra del navegador
+        function updateVH() {
+            document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+        }
+        updateVH();
+        window.addEventListener('resize', updateVH);
+    </script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -1790,7 +1816,32 @@
                 }, 2000);
             } catch (err) {
                 console.error('Clipboard error:', err);
-                showToast('Error al copiar', 'error');
+                // Fallback para Safari antiguo o contextos HTTP
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    showToast('Reporte copiado al portapapeles', 'success');
+
+                    // Visual feedback on button
+                    const btn = document.getElementById('btnCopyWhatsApp');
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-check text-xl"></i> ¡COPIADO!';
+                    btn.classList.remove('bg-[#25D366]');
+                    btn.classList.add('bg-emerald-600');
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.classList.remove('bg-emerald-600');
+                        btn.classList.add('bg-[#25D366]');
+                    }, 2000);
+                } catch (e) {
+                    showToast('Error al copiar. Copia manualmente.', 'error');
+                }
             }
         };
 

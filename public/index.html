@@ -661,7 +661,7 @@
     </script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Configuración real para conciliador-pro-cloud
@@ -680,6 +680,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
         let user = null;
         let cache = [];
@@ -698,7 +699,11 @@
         if (btnLogin) {
             btnLogin.onclick = async () => {
                 try {
-                    await signInWithPopup(auth, provider);
+                    if (isMobile) {
+                        await signInWithRedirect(auth, provider);
+                    } else {
+                        await signInWithPopup(auth, provider);
+                    }
                 } catch (err) {
                     console.error(err);
                     showToast("Error Auth: " + err.code, "error");
@@ -713,6 +718,14 @@
                 } catch (err) { console.error(err); }
             };
         }
+
+        // Capturar resultado cuando Google redirige de vuelta a la app (para móviles con redirect)
+        getRedirectResult(auth).catch(err => {
+            if (err.code && err.code !== 'auth/null-user') {
+                console.error('Redirect auth error:', err);
+                showToast("Error Auth: " + err.code, "error");
+            }
+        });
 
         onAuthStateChanged(auth, (u) => {
             if (u) {

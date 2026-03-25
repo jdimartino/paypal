@@ -667,7 +667,7 @@
         // Configuración real para conciliador-pro-cloud
         const firebaseConfig = {
             apiKey: "AIzaSyAhZnvFz-lSlnaHnZ0Xe6GLbVyMY2I1c4k",
-            authDomain: "conciliador-pro-cloud.web.app",
+            authDomain: "conciliador-pro-cloud.firebaseapp.com",
             projectId: "conciliador-pro-cloud",
             storageBucket: "conciliador-pro-cloud.firebasestorage.app",
             messagingSenderId: "254004066171",
@@ -679,6 +679,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+
         const provider = new GoogleAuthProvider();
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -702,14 +703,23 @@
                     if (isMobile) {
                         await signInWithRedirect(auth, provider);
                     } else {
-                        await signInWithPopup(auth, provider);
+                        const result = await signInWithPopup(auth, provider);
+                        console.log("Login exitoso:", result.user.email);
                     }
                 } catch (err) {
-                    console.error(err);
-                    showToast("Error Auth: " + err.code, "error");
+                    console.error("Login error completo:", err);
+                    showToast("Error Auth: " + (err.code || err.message), "error");
                 }
             };
         }
+
+        // Capturar resultado del redirect (móviles)
+        getRedirectResult(auth).catch(err => {
+            if (err.code && err.code !== 'auth/null-user') {
+                console.error('Redirect auth error:', err);
+                showToast("Error Auth: " + err.code, "error");
+            }
+        });
 
         if (btnLogout) {
             btnLogout.onclick = async () => {
@@ -719,23 +729,20 @@
             };
         }
 
-        // Capturar resultado cuando Google redirige de vuelta a la app (para móviles con redirect)
-        getRedirectResult(auth).catch(err => {
-            if (err.code && err.code !== 'auth/null-user') {
-                console.error('Redirect auth error:', err);
-                showToast("Error Auth: " + err.code, "error");
-            }
-        });
 
         onAuthStateChanged(auth, (u) => {
             if (u) {
+                // Si la sesión es anónima, cerrarla y pedir login con Google
+                if (u.isAnonymous) {
+                    signOut(auth);
+                    return;
+                }
                 user = u;
                 loginOverlay.classList.add('hidden');
                 document.getElementById('statusText').innerText = "CONECTADO: " + user.email;
-                document.getElementById('statusText').title = "UID: " + user.uid; // Tooltip para debug
+                document.getElementById('statusText').title = "UID: " + user.uid;
                 document.getElementById('dot').classList.replace('bg-yellow-400', 'bg-emerald-400');
                 document.getElementById('dot').classList.remove('animate-pulse');
-                console.log("User UID:", user.uid); // Log para debug
                 startRealtimeSync();
             } else {
                 user = null;

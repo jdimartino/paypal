@@ -16,5 +16,10 @@
   },
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "emulators": {
+    "hosting": {
+      "port": 5002
+    }
   }
 }

@@ -1290,20 +1290,40 @@
             }
 
             let date = new Date().toISOString();
-            const dateMatch = text.match(/(\d{1,2})\s+de\s+([a-zA-Z]+)(?:\s+de\s+)?(\d{4})/i);
-            if (dateMatch) {
-                const day = dateMatch[1].padStart(2, '0');
-                const months = { enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06', julio: '07', agosto: '08', septiembre: '09', octubre: '10', noviembre: '11', diciembre: '12' };
-                const mStr = dateMatch[2].toLowerCase();
-                let month = '01';
-                for (let key in months) {
-                    if (mStr.includes(key)) month = months[key];
-                }
-                const year = dateMatch[3];
+            // Try abbreviated format first: "25 mar" or "25 mar 2026"
+            const shortDateMatch = text.match(/(\d{1,2})\s+(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s*(\d{4})?/i);
+            if (shortDateMatch) {
+                const day = shortDateMatch[1].padStart(2, '0');
+                const shortMonths = { ene:'01',feb:'02',mar:'03',abr:'04',may:'05',jun:'06',jul:'07',ago:'08',sep:'09',oct:'10',nov:'11',dic:'12' };
+                const month = shortMonths[shortDateMatch[2].toLowerCase().substring(0, 3)] || '01';
+                const year = shortDateMatch[3] || new Date().getFullYear().toString();
                 date = new Date(`${year}-${month}-${day}`).toISOString();
+            } else {
+                const dateMatch = text.match(/(\d{1,2})\s+de\s+([a-zA-Z]+)(?:\s+de\s+)?(\d{4})/i);
+                if (dateMatch) {
+                    const day = dateMatch[1].padStart(2, '0');
+                    const months = { enero: '01', febrero: '02', marzo: '03', abril: '04', mayo: '05', junio: '06', julio: '07', agosto: '08', septiembre: '09', octubre: '10', noviembre: '11', diciembre: '12' };
+                    const mStr = dateMatch[2].toLowerCase();
+                    let month = '01';
+                    for (let key in months) {
+                        if (mStr.includes(key)) month = months[key];
+                    }
+                    const year = dateMatch[3];
+                    date = new Date(`${year}-${month}-${day}`).toISOString();
+                }
             }
 
-            if (!id || amount <= 0) {
+            // If no real transaction ID found, generate a stable synthetic ID from receipt content
+            if (!id) {
+                const seed = `${name}|${amount}|${date.substring(0, 10)}`;
+                let hash = 0;
+                for (let i = 0; i < seed.length; i++) {
+                    hash = Math.imul(31, hash) + seed.charCodeAt(i) | 0;
+                }
+                id = 'REC' + Math.abs(hash).toString(16).toUpperCase().padStart(12, '0');
+            }
+
+            if (amount <= 0) {
                 return null;
             }
 

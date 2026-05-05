@@ -180,6 +180,17 @@
                 </div>
                 <h3 class="text-xl font-black text-slate-800 mb-2">Agregar Abono</h3>
 
+                <div class="flex bg-slate-100 p-1 rounded-xl mb-4">
+                    <button id="abonoTypeDeduction" onclick="setAbonoType('deduction')"
+                        class="flex-1 py-2 px-4 rounded-lg bg-white shadow-sm text-[10px] font-black text-red-500 transition-all">
+                        <i class="fa-solid fa-minus mr-1"></i> DEDUCCIÓN
+                    </button>
+                    <button id="abonoTypeBonus" onclick="setAbonoType('bonus')"
+                        class="flex-1 py-2 px-4 rounded-lg text-[10px] font-black text-emerald-500 transition-all">
+                        <i class="fa-solid fa-plus mr-1"></i> ABONO
+                    </button>
+                </div>
+
                 <div class="text-left mb-4">
                     <label
                         class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Concepto</label>
@@ -587,7 +598,7 @@
                     <div class="flex flex-col gap-2 mt-3 mb-1">
                         <div
                             class="text-[10px] lg:text-xs font-black text-slate-400 uppercase tracking-widest flex items-center justify-between">
-                            <span>Abonos y Deducciones</span>
+                            <span>Abonos / Deducciones</span>
                         </div>
                         <div id="abonosList" class="space-y-1"></div>
                         <button onclick="promptAbono()"
@@ -1627,10 +1638,33 @@
 
         // --- ABONOS GLOBALES ---
         window.abonosList = [];
+        let abonoTypeSelected = 'deduction';
+
+        window.setAbonoType = (type) => {
+            abonoTypeSelected = type;
+            const btnDed = document.getElementById('abonoTypeDeduction');
+            const btnBon = document.getElementById('abonoTypeBonus');
+            if (type === 'deduction') {
+                btnDed.classList.add('bg-white', 'shadow-sm', 'text-red-500');
+                btnDed.classList.remove('text-slate-400');
+                btnBon.classList.remove('bg-white', 'shadow-sm', 'text-emerald-500');
+                btnBon.classList.add('text-slate-400');
+            } else {
+                btnBon.classList.add('bg-white', 'shadow-sm', 'text-emerald-500');
+                btnBon.classList.remove('text-slate-400');
+                btnDed.classList.remove('bg-white', 'shadow-sm', 'text-red-500');
+                btnDed.classList.add('text-slate-400');
+            }
+        };
 
         window.promptAbono = () => {
             document.getElementById('abonoDescInput').value = '';
             document.getElementById('abonoAmountInput').value = '';
+            abonoTypeSelected = 'deduction';
+            document.getElementById('abonoTypeDeduction').classList.add('bg-white', 'shadow-sm', 'text-red-500');
+            document.getElementById('abonoTypeDeduction').classList.remove('text-slate-400');
+            document.getElementById('abonoTypeBonus').classList.remove('bg-white', 'shadow-sm', 'text-emerald-500');
+            document.getElementById('abonoTypeBonus').classList.add('text-slate-400');
             document.getElementById('abonoModal').classList.add('flex');
             setTimeout(() => document.getElementById('abonoDescInput').focus(), 100);
         };
@@ -1656,20 +1690,20 @@
                 return;
             }
             if (!user) {
-                showToast("Debes iniciar sesión para agregar abonos", "error");
+                showToast("Debes iniciar sesión para agregar registros", "error");
                 return;
             }
 
             const abonoId = Date.now().toString();
-            const abonoObj = { id: abonoId, description: desc, amount: amt };
+            const abonoObj = { id: abonoId, description: desc, amount: amt, type: abonoTypeSelected };
 
             try {
                 await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'abonos', abonoId), abonoObj);
-                showToast("Abono agregado", "success");
+                showToast(abonoTypeSelected === 'bonus' ? "Abono agregado" : "Deducción agregada", "success");
                 closeAbonoModal();
             } catch (err) {
                 console.error(err);
-                showToast("Error al guardar abono", "error");
+                showToast("Error al guardar", "error");
             }
         };
 
@@ -1706,19 +1740,32 @@
             const commission = subtotal * 0.07;
             let total = subtotal - commission;
 
-            // Render Abonos
+            // Render Abonos y Deducciones
             const listaAbonosEl = document.getElementById('abonosList');
+            let totalDeducciones = 0;
             let totalAbonos = 0;
             if (listaAbonosEl) {
                 if (window.abonosList.length === 0) {
-                    listaAbonosEl.innerHTML = '<p class="text-[10px] text-slate-500 italic text-center py-1">Sin abonos registrados</p>';
+                    listaAbonosEl.innerHTML = '<p class="text-[10px] text-slate-500 italic text-center py-1">Sin registros</p>';
                 } else {
                     listaAbonosEl.innerHTML = window.abonosList.map(a => {
-                        totalAbonos += a.amount;
+                        const isBonus = a.type === 'bonus';
+                        if (isBonus) {
+                            totalAbonos += a.amount;
+                        } else {
+                            totalDeducciones += a.amount;
+                        }
+                        const sign = isBonus ? '+' : '-';
+                        const color = isBonus ? 'text-emerald-400' : 'text-red-400';
+                        const label = isBonus ? 'ABONO' : 'DEDUCCIÓN';
+                        const labelColor = isBonus ? 'text-emerald-500' : 'text-red-400';
                         return `<div class="flex justify-between items-center bg-white/5 px-2 py-1.5 rounded-lg">
-                            <span class="text-[10px] text-slate-300 truncate">${a.description}</span>
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="text-[8px] font-black uppercase ${labelColor} shrink-0">${label}</span>
+                                <span class="text-[10px] text-slate-300 truncate">${a.description}</span>
+                            </div>
                             <div class="flex items-center gap-2">
-                                <span class="text-[10px] font-mono text-red-400 font-bold">-$${a.amount.toFixed(2)}</span>
+                                <span class="text-[10px] font-mono ${color} font-bold">${sign}$${a.amount.toFixed(2)}</span>
                                 <button onclick="removeAbono('${a.id}')" class="text-slate-500 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark"></i></button>
                             </div>
                         </div>`;
@@ -1726,7 +1773,7 @@
                 }
             }
 
-            total = total - totalAbonos;
+            total = total + totalAbonos - totalDeducciones;
             if (total < 0) total = 0;
 
             const elSub = document.getElementById('paymentSubtotal');
@@ -1801,11 +1848,15 @@
 
             const subtotal = pendingList.reduce((acc, m) => acc + (m.net || m.amount), 0);
             const commission = subtotal * 0.07;
+            let totalDeducciones = 0;
             let totalAbonos = 0;
             if (window.abonosList) {
-                totalAbonos = window.abonosList.reduce((acc, a) => acc + a.amount, 0);
+                window.abonosList.forEach(a => {
+                    if (a.type === 'bonus') totalAbonos += a.amount;
+                    else totalDeducciones += a.amount;
+                });
             }
-            let total = subtotal - commission - totalAbonos;
+            let total = subtotal - commission - totalDeducciones + totalAbonos;
             if (total < 0) total = 0;
 
             const today = new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -1827,11 +1878,18 @@
             lines.push(`📌 Comisión (7%): -$${commission.toFixed(2)}`);
 
             if (window.abonosList && window.abonosList.length > 0) {
-                lines.push(``);
-                lines.push(`➖ *Abonos y Deducciones:*`);
-                window.abonosList.forEach(a => {
-                    lines.push(`• ${a.description}: -$${a.amount.toFixed(2)}`);
-                });
+                const deducciones = window.abonosList.filter(a => a.type !== 'bonus');
+                const abonos = window.abonosList.filter(a => a.type === 'bonus');
+                if (abonos.length > 0) {
+                    lines.push(``);
+                    lines.push(`➕ *Abonos:*`);
+                    abonos.forEach(a => lines.push(`• ${a.description}: +$${a.amount.toFixed(2)}`));
+                }
+                if (deducciones.length > 0) {
+                    lines.push(``);
+                    lines.push(`➖ *Deducciones:*`);
+                    deducciones.forEach(a => lines.push(`• ${a.description}: -$${a.amount.toFixed(2)}`));
+                }
             }
 
             lines.push(`━━━━━━━━━━━━━━━━`);

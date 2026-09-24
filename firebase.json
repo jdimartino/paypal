@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "conciliador-pro-cloud",
+    "site": "conciliador-jdm",
     "public": "public",
     "ignore": [
       "firebase.json",
@@ -13,9 +13,6 @@
         "destination": "/index.html"
       }
     ]
-  },
-  "firestore": {
-    "rules": "firestore.rules"
   },
   "emulators": {
     "hosting": {

@@ -10,5 +10,8 @@ App estática (`public/index.html`, sin build): el `firebaseConfig` inline debe
 apuntar siempre a `ingresos-gastos-pwa-2026`. Los datos viven en
 `artifacts/paypal-auditor-pro/users/<uid>/movements` (+ `abonos/`).
 
-El proyecto viejo `conciliador-pro-cloud` queda solo como backup de los datos
-originales: no desplegarle.
+El proyecto viejo `conciliador-pro-cloud` fue eliminado el 2026-09-24,
+recuperable hasta ~2026-10-24 vía
+`gcloud projects undelete conciliador-pro-cloud` si hiciera falta; después de
+esa fecha, borrado permanente. Los datos ya están migrados y verificados en
+`ingresos-gastos-pwa-2026`.
